@@ -63,8 +63,7 @@ the visualization operationally to monitor trends and prepare reports. Their mai
 is accuracy and filtering flexibility.
 
 The secondary stakeholder is **management or executive leadership** (e.g., CISO, CTO),
-who consume summarized outputs to make budget and prioritization decisions. They require
-clarity and brevity over analytical depth.
+who use condensed outputs from the visualization to support strategic decisions such as security investment, control prioritization, and resource allocation. Their main need is a clear, decision-oriented summary of threat patterns and potential impact rather than detailed exploratory analysis.
 
 The project lead (data analyst / visualization author) sits between both groups,
 translating raw data into a product that serves both needs. They have high influence
@@ -147,7 +146,23 @@ Analyse the target audience of the visualization product and create at least 2 p
   the cognitive effort required to draw conclusions.
 
 ## Situation Assessment
-Describe the available resources (data, personnel, material, software/tools, infrastructure, etc.) and time as well as restrictions and constraints. Possible risks that may arise during the project are also identified.
+Resources:
+
+**Data**: Kaggle dataset Global Cybersecurity Threats (2015–2024) with 3,000 incidents covering country, industry, attack type, financial loss, affected users, and resolution time.
+
+**Tools & Infrastructure**: Tool for creating the visualization: TBA, Streamlit/Quarto for deployment, GitHub for versioning.
+
+**Constraints & Time**:
+
+Draft charta due March 20, 2026, final product due early June 2026
+
+Limited time requires focusing on core visualizations and usability over advanced features
+
+**Risks**:
+
+- Dataset may be simplified or not fully representative → results must be interpreted cautiously
+
+- Dashboard may become too complex → mitigate by limiting views and keeping design focused
 
 
 ## Visualization Concept
@@ -175,29 +190,31 @@ Divide the project into individual phases, describe them briefly and draw up a p
 %%| label: fig-project-plan
 %%| fig-cap: Preliminary project plan in the form of a Gantt chart.
 gantt
-    title Project Plan
+    title Project Plan Group 2 
     dateFormat YYYY-MM-DD
-    tickInterval 5day
+    tickInterval 7day
     section Project Understanding
-        Initiation workshop and context analysis     :a1, 2024-07-01, 1d
-        Stakeholder and user analysis     :a3, 2024-07-02, 5d
-        Situation assessment    :a4, 2024-07-06, 1d
-        Project objectives and visualization concept    :a5, 2024-07-07, 1d
-        Sign project charta: milestone, m1, 2024-07-08, 1d
+        Initiation workshop and context analysis :a1, 2026-03-14, 1d
+        Stakeholder and user analysis :a2, 2026-03-16, 2d
+        Finish Projectcharta draft :milestone, m1, 2026-03-20, 3d
     
     section Data Acquisition and Exploration
-        Acquire data :a6, 2024-07-08, 3d
-        Exploratory data analysis   :a7, 2024-07-09, 2d
-        Discuss data report: milestone, m2, 2024-07-11, 1d
+        Acquire data :a3, 2026-03-23, 1d
+        Clean data :a4, 2026-03-27, 4d
+        Exploratory data analysis :a5, 2026-03-31, 5d
+        Discuss data report :milestone, m2, 2026-04-02, 1d
         
     section Visual Encoding and Design
-        Overview charts   :a8, 2024-07-11, 3d
-        Maps :a9, 2024-07-11, 5d
-        Implement Dashboard prototype :a10, 2024-07-16, 5d
-        Complete visualization report :a10, 2024-07-21, 1d
+        Chart selection :a6, 2026-04-05, 2d
+        Implement overview and comparison charts :a7, 2026-04-19, 14d
+        Implement interactivity and linked filters :a8, 2026-05-03, 14d
+         Refine narrative, annotations, and styling   :a9, 2026-05-06, 3d
+        Complete visualization report :a10, 2026-05-09, 3d
     section Evaluation
-        Prepare presentation :a10, 2024-07-22, 2d
-        Project presentation : milestone, m2, 2024-07-24, 4m
+        Usability checks and revisions :a11, 2026-05-15, 6d
+        Finalize documentation and deployment :a12, 2026-05-19, 4d
+        Prepare final presentation :a13, 2026-05-26, 7d
+        Project presentation : milestone, m2, 2026-06-03, 4m
 ```
 
 See [Mermaid syntax for Gantt charts](https://mermaid.js.org/syntax/gantt.html). It might not be displayed correctly in Safari &#8594; use Chrome. [Live editor with export functionality](https://mermaid.live/)
