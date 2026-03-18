@@ -2,6 +2,29 @@
 ## Context and Scope
 Describe the context (domain/business area) and topic of the visualization project. Which topical aspects should be addressed? Which question(s) should the data visualization project answer? What are the expected benefits of the project? Where should the visualization product be published (e.g. website, app, intranet)?
 
+This project visualizes global cybersecurity threats recorded between 2015 and 2024.
+The dataset covers 3,000 incidents across 10 countries (Australia, Brazil, China, France,
+Germany, India, Japan, Russia, UK, USA) and seven target industries (Banking, Education,
+Government, Healthcare, IT, Retail, Telecommunications).
+
+Each incident includes the attack type (DDoS, Malware, Man-in-the-Middle, Phishing,
+Ransomware, SQL Injection), the attack source (Hacker Group, Insider, Nation-state,
+Unknown), the exploited vulnerability (Social Engineering, Unpatched Software, Weak
+Passwords, Zero-day), the defense mechanism deployed (AI-based Detection, Antivirus,
+Encryption, Firewall, VPN), the financial loss in million USD, the number of affected
+users, and the incident resolution time in hours.
+
+The project addresses the following questions:
+
+- How have cyber attacks evolved globally between 2015 and 2024?
+- Which countries and industries are most frequently targeted and most financially impacted?
+- Which attack types and vulnerability classes are most prevalent?
+- How effective are different defense mechanisms, measured by resolution time and financial loss?
+- What is the distribution of attack sources across regions and industries?
+
+The visualization product will be published as an interactive web-based report or
+dashboard, for example via Quarto Pub or an organizational intranet.
+
 ## Project Objectives and Success Criteria
 Describe the objectives **from the client/stakeholder perspective**. For example: "Enable users to understand the distribution of sales across different regions". Try to be as specific as possible, but restrict to the concrete needs formulated by the client/stakeholders. For example: if a dashboard is needed explicitly, then state it here, otherwise leave the form of the visualization product open.
 
@@ -9,8 +32,47 @@ Formulate success criteria (from the client/stakeholder perspective): qualitativ
 
 It is also helpful to specify what is explicitly excluded from the project objectives (out of scope).
 
+The goal is to enable cybersecurity analysts and IT security managers to quickly
+identify high-risk patterns in the global threat landscape and communicate findings
+to decision-makers without needing to manually aggregate raw data.
+
+Concretely, the visualization should allow users to:
+
+- Identify the most affected industries and countries by financial loss and incident count
+- Compare the frequency and severity of attack types across years and regions
+- Assess which defense mechanisms are associated with shorter resolution times
+- Understand which vulnerability types are most commonly exploited
+
+Success criteria:
+
+- A user with medium data literacy can identify the top three most targeted industries
+  within 60 seconds of opening the visualization
+- A user can compare at least two defense mechanisms by resolution time without external help
+- The visualization renders correctly on desktop and laptop screens (min. 1024px width)
+- Key findings are interpretable without requiring knowledge of the underlying dataset structure
+
+Out of scope: predictive modeling, real-time data feeds, individual incident drill-downs
+beyond the available variables, and any attribution claims beyond the four attack source
+categories present in the data.
+
 ## Stakeholder Analysis
 List the people involved in and affected by the project. Describe their goals and relationships with each other. Visualisation in the form of a stakeholder map can provide a quick overview.
+
+The primary stakeholder is the **cybersecurity analyst or IT security manager** who uses
+the visualization operationally to monitor trends and prepare reports. Their main interest
+is accuracy and filtering flexibility.
+
+The secondary stakeholder is **management or executive leadership** (e.g., CISO, CTO),
+who consume summarized outputs to make budget and prioritization decisions. They require
+clarity and brevity over analytical depth.
+
+The project lead (data analyst / visualization author) sits between both groups,
+translating raw data into a product that serves both needs. They have high influence
+over design decisions and are responsible for delivery.
+
+External readers (e.g., via a public Quarto Pub link) are a peripheral stakeholder with
+no influence on the project but a potential audience for awareness-oriented communication.
+
 
 ## User Analysis
 Analyse the target audience of the visualization product and create at least 2 personas with **relevant attributes** such as domain expertise, data literacy, technical environment (devices, screen sizes), frequency of use etc. Amend each persona with the dimensions of the customer profile side in the Value Proposition Canvas @Osterwalder2014:
@@ -19,6 +81,70 @@ Analyse the target audience of the visualization product and create at least 2 p
 * **Pains**: What obstacles, risks or undesired outcomes do users currently face? What makes their current approach frustrating or inefficient?
 * **Gains**: What outcomes and benefits do users expect or desire? What would exceed their expectations?
 
+### Persona 1 — Sophia, Senior Cybersecurity Analyst
+
+**Age:** 34 |
+**Role:** Senior Cybersecurity Analyst at a financial institution |
+**Domain expertise:** High |
+**Data literacy:** High |
+**Devices:** Desktop (27" monitor), occasionally laptop |
+**Frequency of use:** Weekly
+
+**User tasks (jobs):**
+
+- *Functional:* Analyze attack trends by year, country, and industry; identify the most
+  exploited vulnerabilities; assess which defense mechanisms correlate with faster resolution.
+- *Social:* Prepare threat intelligence reports for the CISO; present findings to IT leadership.
+- *Emotional:* Feel confident that defensive recommendations are grounded in current,
+  credible data.
+
+**Pains:**
+
+- Currently aggregates data manually from multiple static reports in different formats,
+  which is time-consuming and error-prone.
+- Existing charts do not support cross-filtering, making comparisons across dimensions tedious.
+- Communicating nuanced findings (e.g., defense effectiveness by attack type) to
+  non-technical stakeholders requires additional manual preparation.
+
+**Gains:**
+
+- A single interactive view with filter controls for country, industry, year, and attack type.
+- Visual comparisons of defense mechanisms against resolution time and loss, exportable
+  for presentations.
+- It would exceed expectations if filtered views can be exported as images or summary tables.
+
+---
+
+### Persona 2 — Marcus, IT Security Manager
+
+**Age:** 48 |
+**Role:** IT Security Manager at a mid-sized company |
+**Domain expertise:** Medium–high (technical generalist) |
+**Data literacy:** Medium |
+**Devices:** Laptop (14", corporate Windows), occasional tablet |
+**Frequency of use:** Monthly
+
+**User tasks (jobs):**
+
+- *Functional:* Get a quick overview of rising attack types; understand which vulnerabilities
+  are most dangerous in relevant industries; justify budget requests for specific security tools.
+- *Social:* Report cyber risk posture to the board; coordinate with external security vendors.
+- *Emotional:* Feel that his recommendations are backed by credible, up-to-date evidence
+  rather than anecdote.
+
+**Pains:**
+
+- Overwhelmed by overly complex dashboards with too many options and no clear entry point.
+- Has limited time — needs actionable insights within five minutes.
+- Struggles to identify which global benchmarks are relevant to his company's sector and size.
+
+**Gains:**
+
+- A clean summary view with key KPIs visible at a glance: total incidents, average financial
+  loss, most common attack type per industry.
+- Industry-level filtering so findings feel directly applicable to his context.
+- It would exceed expectations if short interpretive text accompanies the charts, reducing
+  the cognitive effort required to draw conclusions.
 
 ## Situation Assessment
 Describe the available resources (data, personnel, material, software/tools, infrastructure, etc.) and time as well as restrictions and constraints. Possible risks that may arise during the project are also identified.
