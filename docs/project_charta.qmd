@@ -576,6 +576,7 @@ across all major phases.
 | Francis Lehner | Data analysis and visualization design | Supports data acquisition, data preparation, exploratory analysis, chart selection, and interpretation of analytical findings | Email: lehnefr1@students.zhaw.ch<br>GitHub: FrancisLehner |
 | Brian Bernhauser | Implementation and technical integration | Supports implementation of the Quarto-based visualization product, interaction design, repository integration, and deployment preparation | Email: berbri01@students.zhaw.ch<br>GitHub: MuninsEye |
 
+<div style="height: 1.5rem;"></div>
 **Coaching and academic support**
 
 | Name | Role | Contribution to project | Contact |
