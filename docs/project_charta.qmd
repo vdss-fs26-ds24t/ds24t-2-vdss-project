@@ -1,223 +1,591 @@
 # Project Charta
 ## Context and Scope
-Describe the context (domain/business area) and topic of the visualization project. Which topical aspects should be addressed? Which question(s) should the data visualization project answer? What are the expected benefits of the project? Where should the visualization product be published (e.g. website, app, intranet)?
 
-This project visualizes global cybersecurity threats recorded between 2015 and 2024.
-The dataset covers 3,000 incidents across 10 countries (Australia, Brazil, China, France,
-Germany, India, Japan, Russia, UK, USA) and seven target industries (Banking, Education,
-Government, Healthcare, IT, Retail, Telecommunications).
+This project investigates patterns in cybersecurity incidents recorded between 2015 and 2024
+in order to support clearer understanding and communication of cyber threat trends across
+time, countries, industries, and attack characteristics.
 
-Each incident includes the attack type (DDoS, Malware, Man-in-the-Middle, Phishing,
-Ransomware, SQL Injection), the attack source (Hacker Group, Insider, Nation-state,
-Unknown), the exploited vulnerability (Social Engineering, Unpatched Software, Weak
-Passwords, Zero-day), the defense mechanism deployed (AI-based Detection, Antivirus,
-Encryption, Firewall, VPN), the financial loss in million USD, the number of affected
-users, and the incident resolution time in hours.
+The project is based on the Kaggle dataset *Global Cybersecurity Threats (2015–2024)*,
+which contains 3,000 recorded incidents from 10 countries (Australia, Brazil, China,
+France, Germany, India, Japan, Russia, UK, USA) and seven target industries (Banking,
+Education, Government, Healthcare, IT, Retail, Telecommunications).
+
+For each incident, the dataset includes contextual and analytical variables such as country,
+industry, year, attack type, attack source, exploited vulnerability, defense mechanism,
+financial loss in million USD, number of affected users, and incident resolution time in
+hours.
+
+The project focuses on identifying and communicating patterns in the recorded incidents
+rather than making causal claims about the overall global cybersecurity situation. The scope
+is therefore limited to comparative and descriptive analysis based on the variables available
+in the dataset.
 
 The project addresses the following questions:
 
-- How have cyber attacks evolved globally between 2015 and 2024?
-- Which countries and industries are most frequently targeted and most financially impacted?
-- Which attack types and vulnerability classes are most prevalent?
-- How effective are different defense mechanisms, measured by resolution time and financial loss?
-- What is the distribution of attack sources across regions and industries?
+- How have recorded cyber incidents evolved between 2015 and 2024 in terms of count,
+  financial loss, affected users, and resolution time?
+- Which countries and industries in the dataset experience the highest incident frequency,
+  the greatest financial losses, and the largest numbers of affected users?
+- Which attack types are most common, and which are associated with the highest losses,
+  widest user impact, or longest resolution times?
+- Which vulnerability types are most frequently exploited, and how do they relate to
+  attack type, industry, and attack source?
+- How are attack sources distributed across countries and industries, and do some countries
+  or sectors show distinct threat profiles?
+- How do defense mechanisms vary across incidents, and how do incident outcomes differ
+  across defense mechanisms in terms of loss and resolution time?
+- Which combinations of country, industry, attack type, and vulnerability appear most
+  risk-intensive within the dataset?
+- Are there sectors or countries with a mismatch between attack frequency and attack
+  severity, for example many incidents but relatively lower losses, or fewer incidents
+  with very high losses?
 
-The visualization product will be published as an interactive web-based report or
-dashboard, for example via Quarto Pub or an organizational intranet.
+The expected benefit of the project is to transform a relatively complex incident dataset
+into an accessible visual product that helps users quickly detect patterns, compare risk
+dimensions, and communicate relevant findings to decision-makers.
+
+The visualization product will be published as an interactive web-based report
+on GitHub Pages as part of the project repository.
 
 ## Project Objectives and Success Criteria
-Describe the objectives **from the client/stakeholder perspective**. For example: "Enable users to understand the distribution of sales across different regions". Try to be as specific as possible, but restrict to the concrete needs formulated by the client/stakeholders. For example: if a dashboard is needed explicitly, then state it here, otherwise leave the form of the visualization product open.
 
-Formulate success criteria (from the client/stakeholder perspective): qualitative objectives and, wherever possible, corresponding quantitative metrics with target values to be achieved within the project. These objectives should directly address the pains and gains identified in the user analysis.
+The project aims to support cybersecurity analysts, IT security managers, and decision-makers
+in exploring, understanding, and communicating important patterns in the incident dataset
+more efficiently than would be possible from raw tabular data alone.
 
-It is also helpful to specify what is explicitly excluded from the project objectives (out of scope).
+From the stakeholder perspective, the main objectives are:
 
-The goal is to enable cybersecurity analysts and IT security managers to quickly
-identify high-risk patterns in the global threat landscape and communicate findings
-to decision-makers without needing to manually aggregate raw data.
-
-Concretely, the visualization should allow users to:
-
-- Identify the most affected industries and countries by financial loss and incident count
-- Compare the frequency and severity of attack types across years and regions
-- Assess which defense mechanisms are associated with shorter resolution times
-- Understand which vulnerability types are most commonly exploited
+- enable users to identify which countries, industries, attack types, and vulnerability
+  categories are most strongly associated with incident frequency and incident severity
+- enable users to compare incidents not only by count, but also by financial loss,
+  number of affected users, and incident resolution time
+- enable users to recognize how threat profiles differ across countries, industries,
+  and time periods
+- enable users to examine how attack type, attack source, vulnerability, and defense
+  mechanism relate to one another within the recorded incidents
+- enable analysts to extract evidence-based insights for reporting, benchmarking, and
+  internal communication
+- enable managers and other decision-makers to obtain a concise overview of high-risk
+  patterns and their potential operational or financial relevance
+- provide a trustworthy and interpretable visual basis for prioritization, discussion,
+  and further investigation
 
 Success criteria:
 
-- A user with medium data literacy can identify the top three most targeted industries
-  within 60 seconds of opening the visualization
-- A user can compare at least two defense mechanisms by resolution time without external help
-- The visualization renders correctly on desktop and laptop screens (min. 1024px width)
-- Key findings are interpretable without requiring knowledge of the underlying dataset structure
+- A user with medium data literacy can identify the most affected countries or industries
+  within 60 seconds of opening the visualization.
+- A user can compare at least two dimensions of cyber risk, for example attack type and
+  industry or defense mechanism and resolution time, without external assistance.
+- The visualization makes it possible to distinguish between attack frequency and attack
+  severity rather than reducing the analysis to incident counts alone.
+- The main patterns across time, country, industry, attack type, vulnerability, and
+  incident outcomes can be understood without prior knowledge of the raw dataset structure.
+- The product supports both quick management-oriented orientation and more detailed
+  analyst-oriented comparison.
+- The visualization is readable and functional on standard desktop and laptop screens
+  used in professional environments.
 
-Out of scope: predictive modeling, real-time data feeds, individual incident drill-downs
-beyond the available variables, and any attribution claims beyond the four attack source
-categories present in the data.
+Out of scope:
+
+- predictive modeling or forecasting of future cyber incidents
+- real-time monitoring or live data integration
+- causal claims about the effectiveness of specific defense mechanisms
+- organization-level conclusions beyond the aggregated incident records in the dataset
+- claims about the full global threat landscape beyond the countries and incidents
+  represented in the data
+- attribution claims beyond the attack source categories available in the dataset
 
 ## Stakeholder Analysis
-List the people involved in and affected by the project. Describe their goals and relationships with each other. Visualisation in the form of a stakeholder map can provide a quick overview.
 
-The primary stakeholder is the **cybersecurity analyst or IT security manager** who uses
-the visualization operationally to monitor trends and prepare reports. Their main interest
-is accuracy and filtering flexibility.
+The project involves several stakeholder groups with different goals, levels of influence,
+and relationships to the final visualization product.
 
-The secondary stakeholder is **management or executive leadership** (e.g., CISO, CTO),
-who use condensed outputs from the visualization to support strategic decisions such as security investment, control prioritization, and resource allocation. Their main need is a clear, decision-oriented summary of threat patterns and potential impact rather than detailed exploratory analysis.
+The primary stakeholders are **cybersecurity analysts and IT security managers**. They are
+the main intended users of the visualization and use it to explore incident patterns,
+compare threat profiles, identify high-risk combinations, and prepare reports or
+recommendations. Their main interests are analytical depth, clarity, and efficient
+comparison across dimensions such as year, country, industry, attack type, vulnerability,
+defense mechanism, financial loss, affected users, and resolution time.
 
-The project lead (data analyst / visualization author) sits between both groups,
-translating raw data into a product that serves both needs. They have high influence
-over design decisions and are responsible for delivery.
+A secondary stakeholder group is **executive leadership**, such as a CISO, CTO, or other
+management representatives. These stakeholders are less interested in detailed exploratory
+analysis and more interested in a concise, trustworthy summary of the most important
+patterns in the dataset. They use the visualization to support prioritization, internal
+communication, strategic discussion, and resource allocation.
 
-External readers (e.g., via a public Quarto Pub link) are a peripheral stakeholder with
-no influence on the project but a potential audience for awareness-oriented communication.
+Another important stakeholder is the **project team** acting as data analysts and
+visualization authors. The team has high influence over scope, analysis, design, and
+implementation. Its role is to translate the available data into a coherent visual product
+that serves both detailed analytical needs and high-level communication needs.
 
+A further stakeholder group is **teaching staff / the project coach**, who are not the
+main end users of the visualization but strongly influence the project through requirements,
+feedback, and evaluation. Their interest lies in a well-structured, methodologically sound,
+and clearly justified project outcome.
+
+A peripheral stakeholder group consists of **external readers**, such as fellow students or
+other viewers accessing the GitHub Pages site. They have little direct influence on the
+project, but they still benefit from a clear, interpretable, and well-documented
+presentation of the findings.
+
+Overall, the stakeholder relationships are shaped by different levels of detail and
+different decision contexts. Analysts and security managers require exploratory and
+comparative views, executive stakeholders require condensed and decision-oriented summaries,
+and teaching staff require transparency and methodological consistency. The project must
+therefore function as a bridge between analysis, communication, and academic documentation.
+
+```{=html}
+<div style="display: flex; justify-content: center; margin: 2rem 0;">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 560" width="100%" style="max-width: 1100px; height: auto; font-family: Arial, sans-serif;">
+
+  <!-- Background circles -->
+  <circle cx="620" cy="270" r="210" fill="#e8e8e8"></circle>
+  <circle cx="620" cy="270" r="130" fill="#cfcfd1"></circle>
+  <circle cx="620" cy="270" r="70" fill="#9fa0a4"></circle>
+
+  <!-- Legend -->
+  <circle cx="930" cy="85" r="12" fill="#e8e8e8"></circle>
+  <text x="960" y="92" font-size="18">Peripheral stakeholders</text>
+
+  <circle cx="930" cy="135" r="12" fill="#cfcfd1"></circle>
+  <text x="960" y="142" font-size="18">Important stakeholders</text>
+
+  <circle cx="930" cy="185" r="12" fill="#9fa0a4"></circle>
+  <text x="960" y="192" font-size="18">Core stakeholders</text>
+
+  <!-- Executive Leadership -->
+  <text x="40" y="85" font-size="20">Executive Leadership</text>
+  <line x1="255" y1="78" x2="620" y2="78" stroke="black" stroke-width="3"></line>
+  <line x1="620" y1="78" x2="690" y2="120" stroke="black" stroke-width="3"></line>
+  <circle cx="690" cy="120" r="6" fill="black"></circle>
+
+  <!-- Teaching Staff / Coach -->
+  <text x="40" y="145" font-size="20">Teaching Staff / Coach</text>
+  <line x1="280" y1="138" x2="600" y2="138" stroke="black" stroke-width="3"></line>
+  <line x1="600" y1="138" x2="655" y2="200" stroke="black" stroke-width="3"></line>
+  <circle cx="655" cy="200" r="6" fill="black"></circle>
+
+  <!-- Project Team -->
+  <text x="40" y="205" font-size="20">Project Team</text>
+  <line x1="170" y1="198" x2="560" y2="198" stroke="black" stroke-width="3"></line>
+  <line x1="560" y1="198" x2="620" y2="235" stroke="black" stroke-width="3"></line>
+  <circle cx="620" cy="235" r="6" fill="black"></circle>
+
+  <!-- Cybersecurity Analysts / IT Security Managers -->
+  <text x="40" y="285" font-size="20">Cybersecurity Analysts / IT Security Managers</text>
+  <line x1="470" y1="278" x2="570" y2="278" stroke="black" stroke-width="3"></line>
+  <line x1="570" y1="278" x2="620" y2="300" stroke="black" stroke-width="3"></line>
+  <circle cx="620" cy="300" r="6" fill="black"></circle>
+
+  <!-- External Readers -->
+  <text x="40" y="365" font-size="20">External Readers</text>
+  <line x1="205" y1="358" x2="500" y2="358" stroke="black" stroke-width="3"></line>
+  <line x1="500" y1="358" x2="535" y2="335" stroke="black" stroke-width="3"></line>
+  <circle cx="535" cy="335" r="6" fill="black"></circle>
+
+</svg>
+</div>
+```
+
+*Figure: Stakeholder map of the cybersecurity visualization project.*
 
 ## User Analysis
-Analyse the target audience of the visualization product and create at least 2 personas with **relevant attributes** such as domain expertise, data literacy, technical environment (devices, screen sizes), frequency of use etc. Amend each persona with the dimensions of the customer profile side in the Value Proposition Canvas @Osterwalder2014:
 
-* **User tasks** (jobs): What tasks are users trying to accomplish? Consider functional jobs (e.g. analysing data, making decisions), social jobs (e.g. reporting to stakeholders, collaborating with colleagues) and emotional jobs (e.g. feeling confident in their decisions).
-* **Pains**: What obstacles, risks or undesired outcomes do users currently face? What makes their current approach frustrating or inefficient?
-* **Gains**: What outcomes and benefits do users expect or desire? What would exceed their expectations?
+The visualization product is designed for two main user groups with different levels of
+domain expertise, data literacy, and decision needs. The first persona represents a more
+analytical and exploratory use case, while the second persona represents a more condensed
+and decision-oriented use case. Together, they reflect the main stakeholder groups
+identified in the project: operational security users and management-oriented users.
+
+| Attribute | Persona 1: Sophia | Persona 2: Marcus |
+|:--|:--|:--|
+| Role | Senior Cybersecurity Analyst | IT Security Manager |
+| Age | 34 | 48 |
+| Domain expertise | High | Medium-high |
+| Data literacy | High | Medium |
+| Technical environment | Desktop workstation, occasionally laptop | Corporate laptop, occasionally tablet |
+| Typical screen setup | 27" monitor, high-resolution display | 14" laptop screen |
+| Frequency of use | Weekly | Monthly |
+| Main use | Detailed exploration, comparison, reporting | Quick overview, prioritization, communication |
+| Main need | Analytical depth and filtering flexibility | Clear summaries and rapid time-to-insight |
 
 ### Persona 1 — Sophia, Senior Cybersecurity Analyst
 
-**Age:** 34 |
-**Role:** Senior Cybersecurity Analyst at a financial institution |
-**Domain expertise:** High |
-**Data literacy:** High |
-**Devices:** Desktop (27" monitor), occasionally laptop |
-**Frequency of use:** Weekly
+Sophia works in a security-focused environment and regularly prepares internal reporting,
+trend analysis, and evidence-based recommendations. She is comfortable interpreting
+multi-dimensional data and expects the visualization to support flexible comparison across
+countries, industries, attack types, vulnerabilities, defense mechanisms, and incident
+outcomes.
 
-**User tasks (jobs):**
+**User tasks (jobs)**
 
-- *Functional:* Analyze attack trends by year, country, and industry; identify the most
-  exploited vulnerabilities; assess which defense mechanisms correlate with faster resolution.
-- *Social:* Prepare threat intelligence reports for the CISO; present findings to IT leadership.
-- *Emotional:* Feel confident that defensive recommendations are grounded in current,
-  credible data.
+- **Functional:** Analyse attack trends by year, country, and industry; compare attack
+  types and vulnerabilities; assess patterns in financial loss, affected users, and
+  resolution time; examine how defense mechanisms relate to recorded outcomes.
+- **Social:** Prepare reports and briefings for the CISO or IT leadership; communicate
+  findings to colleagues and decision-makers; support internal prioritization discussions.
+- **Emotional:** Feel confident that the analysis is evidence-based, credible, and not
+  reliant on manual aggregation or intuition alone.
 
-**Pains:**
+**Pains**
 
-- Currently aggregates data manually from multiple static reports in different formats,
-  which is time-consuming and error-prone.
-- Existing charts do not support cross-filtering, making comparisons across dimensions tedious.
-- Communicating nuanced findings (e.g., defense effectiveness by attack type) to
-  non-technical stakeholders requires additional manual preparation.
+- Manually combining static tables and charts is time-consuming and increases the risk of
+  inconsistent interpretation.
+- Existing visual summaries often do not support cross-category comparison, for example
+  across country, industry, and attack type at the same time.
+- It is difficult to communicate more nuanced findings, such as differences between attack
+  frequency and attack severity, to less technical audiences.
+- Overly simplified dashboards may hide patterns she considers important.
 
-**Gains:**
+**Gains**
 
-- A single interactive view with filter controls for country, industry, year, and attack type.
-- Visual comparisons of defense mechanisms against resolution time and loss, exportable
-  for presentations.
-- It would exceed expectations if filtered views can be exported as images or summary tables.
-
----
+- A single visual product that makes patterns across time, geography, sector, and threat
+  characteristics easy to compare.
+- Clear views of both **frequency** and **severity**, using not only incident count but
+  also financial loss, affected users, and resolution time.
+- Interactive filtering that helps her move quickly from a broad overview to a more focused
+  comparison.
+- Exportable or presentation-friendly outputs would further increase practical usefulness.
 
 ### Persona 2 — Marcus, IT Security Manager
 
-**Age:** 48 |
-**Role:** IT Security Manager at a mid-sized company |
-**Domain expertise:** Medium–high (technical generalist) |
-**Data literacy:** Medium |
-**Devices:** Laptop (14", corporate Windows), occasional tablet |
-**Frequency of use:** Monthly
+Marcus is responsible for understanding relevant threat patterns at a higher level and for
+communicating security priorities to management. He has strong practical knowledge of IT
+security, but less time and less need for deep exploratory analysis than Sophia. He values
+clarity, trustworthiness, and quick orientation.
 
-**User tasks (jobs):**
+**User tasks (jobs)**
 
-- *Functional:* Get a quick overview of rising attack types; understand which vulnerabilities
-  are most dangerous in relevant industries; justify budget requests for specific security tools.
-- *Social:* Report cyber risk posture to the board; coordinate with external security vendors.
-- *Emotional:* Feel that his recommendations are backed by credible, up-to-date evidence
-  rather than anecdote.
+- **Functional:** Get a quick overview of important threat developments; identify the most
+  relevant industries, countries, attack types, and vulnerabilities; compare broad outcome
+  measures such as financial loss or resolution time.
+- **Social:** Communicate cyber risk patterns to senior management; justify security-related
+  priorities or spending; align internal discussions around a shared evidence base.
+- **Emotional:** Feel confident that his recommendations are supported by credible evidence
+  and that he can explain them clearly without getting lost in technical detail.
 
-**Pains:**
+**Pains**
 
-- Overwhelmed by overly complex dashboards with too many options and no clear entry point.
-- Has limited time — needs actionable insights within five minutes.
-- Struggles to identify which global benchmarks are relevant to his company's sector and size.
+- Complex dashboards with too many views or controls create friction and reduce trust.
+- Time is limited, so he needs to understand the main message within a few minutes.
+- Purely technical views do not always translate well into management communication.
+- Without a clear overview, it is hard to distinguish what is frequent from what is truly severe.
 
-**Gains:**
+**Gains**
 
-- A clean summary view with key KPIs visible at a glance: total incidents, average financial
-  loss, most common attack type per industry.
-- Industry-level filtering so findings feel directly applicable to his context.
-- It would exceed expectations if short interpretive text accompanies the charts, reducing
-  the cognitive effort required to draw conclusions.
+- A clear entry point with concise summary views and a small number of well-chosen charts.
+- Immediate visibility of the most affected sectors, attack types, or outcome patterns.
+- Short explanatory text or annotations that help interpret the findings.
+- A product that supports both fast orientation and follow-up discussion with colleagues
+  or leadership.
+
+### Design implications derived from the user analysis
+
+The user analysis suggests that the visualization should combine **high-level clarity** with
+**selective analytical depth**. It should therefore:
+
+- provide an immediate overview for management-oriented users
+- support comparison across multiple dimensions for analyst-oriented users
+- distinguish clearly between **incident frequency** and **incident severity**
+- remain readable on standard laptop screens while still working well on larger desktop displays
+- use limited, meaningful interactivity rather than an overly complex dashboard structure
+
+These implications directly inform the later visualization concept and support the goal of
+building a product that is both analytically useful and easy to communicate.
 
 ## Situation Assessment
-Resources:
 
-**Data**: Kaggle dataset Global Cybersecurity Threats (2015–2024) with 3,000 incidents covering country, industry, attack type, financial loss, affected users, and resolution time.
+The project is based on a predefined public dataset and is developed within the framework
+of a semester-long visualization project. The main challenge is not data access itself, but
+the transformation of a multi-dimensional incident dataset into a clear, interpretable, and
+well-structured visual product that supports both analytical exploration and communication.
 
-**Tools & Infrastructure**: Tool for creating the visualization: TBA, Streamlit/Quarto for deployment, GitHub for versioning.
+### Resources
 
-**Constraints & Time**:
+**Data**
 
-Draft charta due March 20, 2026, final product due early June 2026
+The project uses the Kaggle dataset *Global Cybersecurity Threats (2015–2024)*. The dataset
+contains 3,000 recorded incidents and provides a suitable basis for descriptive and
+comparative analysis across multiple dimensions, including country, industry, attack type,
+attack source, vulnerability, defense mechanism, financial loss, affected users, and
+incident resolution time.
 
-Limited time requires focusing on core visualizations and usability over advanced features
+**Tools and infrastructure**
 
-**Risks**:
+The project repository is managed on GitHub and documented as a Quarto project. The final
+visualization product will be published via GitHub Pages. This setup supports version
+control, reproducibility, collaborative editing, and transparent documentation of project
+decisions.
 
-- Dataset may be simplified or not fully representative → results must be interpreted cautiously
+**Team resources**
 
-- Dashboard may become too complex → mitigate by limiting views and keeping design focused
+The project is carried out by a three-person team. This allows responsibilities to be split
+across data preparation, analysis, visualization design, implementation, documentation, and
+presentation, while still requiring close coordination across all project phases.
 
+### Constraints
+
+**Time constraints**
+
+The project follows the semester schedule, with the draft project charta due in March 2026
+and the final visualization product due toward the end of the semester. The available time
+is sufficient for a well-scoped visual product, but not for an overly broad or technically
+complex solution.
+
+**Data constraints**
+
+The dataset is suitable for comparative and descriptive analysis, but it does not support
+causal claims, real-time monitoring, or conclusions about organizations not represented in
+the incident records. The project must therefore stay within the limits of the available
+variables and the structure of the data.
+
+**Technical constraints**
+
+The final product should remain readable and usable on standard desktop and laptop screens.
+Because the project is implemented in a documented Quarto workflow, the design should favor
+clarity, maintainability, and reproducibility over unnecessary technical complexity.
+
+### Opportunities
+
+The dataset offers several strong opportunities for visualization:
+
+- comparison of incident **frequency** and **severity**
+- analysis across multiple dimensions such as country, industry, year, attack type,
+  vulnerability, and defense mechanism
+- communication of both high-level patterns and more detailed comparisons
+- development of a product that is useful for both exploratory analysis and management
+  communication
+
+### Risks and mitigation
+
+| Risk | Relevance to project | Mitigation |
+|:--|:--|:--|
+| The dataset may be simplified or not fully representative of the wider global threat landscape. | Findings could be overinterpreted or presented too broadly. | Clearly communicate scope and limitations; frame results as patterns within the dataset rather than universal conclusions. |
+| The visualization may become too complex because the dataset supports many dimensions. | Users may feel overwhelmed, especially management-oriented users. | Limit the number of views, prioritize the most relevant questions, and use progressive disclosure through filtering and sectioning. |
+| The team may try to answer too many questions at once. | This could reduce focus and weaken the final product. | Define a clear analytical core and treat additional questions as optional extensions. |
+| Some variables may be less informative than expected once explored in detail. | Certain intended views may not generate meaningful insight. | Use exploratory analysis early to validate promising dimensions and revise the visualization scope if necessary. |
+| Technical implementation choices may take more time than expected. | Time could be lost on formatting or interaction details instead of analytical value. | Prefer robust, maintainable solutions in Quarto and keep interactivity selective rather than excessive. |
+
+Overall, the situation assessment suggests that the project has a strong analytical basis
+and a suitable technical setup, but will benefit most from disciplined scoping, careful
+communication of data limitations, and a design that balances depth with clarity.
 
 ## Visualization Concept
-Translate the project objectives into a concrete visualization concept. This corresponds to the value map side of the Value Proposition Canvas [@Osterwalder2014] – describe how the proposed visualization product addresses the users' tasks, relieves their pains and creates gains. Address the following aspects:
 
-* **Product form**: Composition of the visualization product – dashboard, data story, infographic, exploratory tool, etc.
-* **Visual encodings**: Types of charts and visualizations to be used – e.g. bar chart, line chart, scatter plot, map, etc.
-* **Interactivity**: Static vs. dynamic/interactive elements – filtering, drill-down, tooltips, linked views, etc.
-* **Narrative and annotation**: Text elements, storytelling structure, annotations and contextual information.
-* **Target medium and integration**: Embedding in the target environment – e.g. website, intranet, app, print, etc.
+The proposed visualization product is an interactive web-based report implemented within
+the Quarto project website and published via GitHub Pages. Conceptually, it combines
+elements of a **data story** and an **exploratory dashboard**: users should be able to
+gain a quick overview of the most important patterns in the dataset while also being able
+to compare selected dimensions in more detail.
 
-For each design decision, articulate the intended value along three dimensions:
+The concept is designed to support both main user types identified in the user analysis.
+Management-oriented users need a clear entry point, concise summaries, and easily
+interpretable visual comparisons. More analytical users need the ability to compare
+patterns across time, country, industry, attack type, vulnerability, defense mechanism,
+and incident outcome measures such as financial loss, affected users, and resolution time.
 
-* **Cognitive and analytical value**: How does the design amplify the user's ability to detect patterns, identify outliers, understand distributions or discover relationships [@card1999; @vanwijk2005]?
-* **Communicative value**: How does the design support the communication of information to the target audience profile(s)? 
-* **Experiential and aesthetic value**: How do the visual and interactive qualities of the design foster engagement, trust and willingness to adopt the product in practice?
+### Concept overview
 
-Justify the concept by mapping it explicitly to the project objectives and the user needs identified in the user analysis.
+| Design aspect | Proposed concept | Intended value |
+|:--|:--|:--|
+| Product form | Quarto-based interactive web report with dashboard-like sections | Combines communicative clarity with analytical usefulness |
+| Main structure | Overview, trends, threat profiles, defense/outcome comparison, key findings | Supports both fast orientation and deeper exploration |
+| Core charts | KPI cards, line charts, sorted bar charts, grouped/stacked bars, heatmaps, boxplots or dot plots | Enables comparison, pattern detection, and interpretation across multiple dimensions |
+| Interactivity | Light interactivity through filters, tooltips, and metric toggles | Adds analytical flexibility without overwhelming users |
+| Narrative support | Section introductions, annotations, and short interpretive text | Improves accessibility and communication of findings |
+| Medium | GitHub Pages-hosted Quarto website optimized for desktop and laptop use | Matches project setup and expected usage context |
 
+### Product form
+
+The product will take the form of a compact multi-section visual report rather than a
+single-screen dashboard. This allows the project to maintain a clear narrative structure
+while still offering interactive exploration where it adds value.
+
+A likely structure is:
+
+- an **overview section** with headline indicators and the most important first insights
+- a **trend section** showing how incident patterns evolve over time
+- a **comparison section** focusing on country and industry differences
+- a **threat profile section** showing attack types, vulnerabilities, and attack sources
+- an **outcome and defense section** comparing financial loss, affected users, and
+  resolution time across selected categories
+- a short **key findings section** summarizing the most relevant takeaways
+
+This structure creates **cognitive and analytical value** by separating different
+questions into manageable views, **communicative value** by guiding users through the
+analysis, and **experiential value** by keeping the interface focused rather than crowded.
+
+### Visual encodings
+
+The visualization will primarily rely on chart types that support accurate comparison and
+remain interpretable for users with medium data literacy:
+
+- **KPI cards** for total incidents, average financial loss, average resolution time, or
+  most frequent attack type
+- **line charts** for developments over time
+- **sorted bar charts** for comparing countries, industries, attack types, and
+  vulnerabilities
+- **grouped or stacked bar charts** for comparing category composition across countries
+  or industries
+- **heatmaps** for highlighting concentration patterns, for example attack type by
+  industry or vulnerability by industry
+- **boxplots or dot plots** for comparing distributions of financial loss or resolution
+  time across defense mechanisms or attack categories
+
+Country comparisons should preferably use **sorted bar charts** rather than a choropleth
+map, because the dataset only includes a limited set of countries and precise comparison
+is more important than geographical shape.
+
+These encodings support **analytical value** by making rankings, distributions, trends,
+and category relationships visible. They support **communicative value** by using familiar
+visual forms, and **aesthetic value** by creating a consistent and readable visual system.
+
+### Interactivity
+
+Interactivity should be present, but selective and purposeful. The product should avoid
+becoming a highly complex dashboard with too many controls.
+
+Useful interactive features include:
+
+- filters for **year**, **country**, **industry**, and **attack type**
+- tooltips for exact values and contextual details
+- simple metric switches where appropriate, for example between **incident count**,
+  **financial loss**, and **resolution time**
+- a clear **reset filters** option
+- linked filtering across selected views where this can be implemented robustly
+
+This level of interactivity relieves the users' pains identified earlier: analysts can
+focus on relevant subsets of the data without manual aggregation, while managers can still
+use the report without being overwhelmed by excessive controls.
+
+### Narrative and annotation
+
+The visualization should not rely on charts alone. Each major section should include a
+brief textual introduction and, where useful, short annotations highlighting important
+patterns. For example, annotations can point out:
+
+- countries or industries with particularly high incident frequency
+- attack categories associated with unusually high financial losses
+- differences between frequent threats and severe threats
+- defense mechanisms associated with shorter or longer recorded resolution times
+
+The report should also include a short note on data limitations, making clear that the
+visualization presents descriptive patterns within the dataset and does not establish
+causal relationships or provide a complete picture of the global cybersecurity landscape.
+
+This creates **communicative value** by reducing interpretation effort and helps build
+**trust** through transparency.
+
+### Target medium and integration
+
+The product will be embedded in the GitHub Pages-hosted Quarto project website. It should
+be optimized primarily for desktop and laptop screens, as these match the expected working
+environment of both personas. The layout should remain readable on smaller laptop screens,
+but the design priority is not mobile-first use.
+
+This medium supports the project well because it allows transparent documentation,
+reproducible implementation, and straightforward access for teaching staff and other
+stakeholders.
+
+### Mapping to user needs and project objectives
+
+The concept directly addresses the previously identified user needs and project objectives:
+
+- it supports **quick orientation** through summary views and KPI-style indicators
+- it supports **deeper comparison** through multi-dimensional charts and filtering
+- it distinguishes between **frequency** and **severity**, which is central to the data
+  and to the intended analytical value of the project
+- it helps analysts generate evidence-based insights while helping managers communicate
+  the most relevant patterns more efficiently
+- it remains realistic in scope by limiting interactivity to features that add clear value
+
+Overall, the concept aims to create a visualization product that is analytically useful,
+communicatively effective, and realistically implementable within the project timeframe.
 
 ## Project Plan
-Divide the project into individual phases, describe them briefly and draw up a preliminary timetable, e.g. as a Gantt chart:
+
+The project is structured in several consecutive but partly overlapping phases. The plan
+follows the semester schedule and includes multiple feedback loops through coaching
+sessions. This is important because the project is expected to evolve iteratively from the
+initial project charta to the final visualization product and accompanying documentation.
+
+The work begins with project understanding, stakeholder and user analysis, and the
+preparation of the draft project charta. After the first coaching session, the focus shifts
+towards data acquisition, data cleaning, exploratory analysis, and refinement of the
+visualization concept. In the second half of the semester, the team concentrates on visual
+encoding decisions, prototyping, implementation, evaluation, documentation, deployment, and
+preparation for the final submission and presentation.
+
+The timeline below is preliminary and may be adjusted slightly as the project develops,
+especially after coaching sessions and during implementation.
 
 ```{mermaid}
 %%| label: fig-project-plan
 %%| fig-cap: Preliminary project plan in the form of a Gantt chart.
 gantt
-    title Project Plan Group 2 
     dateFormat YYYY-MM-DD
-    tickInterval 7day
+    tickInterval 1month
+    axisFormat %d.%m.
+
     section Project Understanding
-        Initiation workshop and context analysis :a1, 2026-03-14, 1d
-        Stakeholder and user analysis :a2, 2026-03-16, 2d
-        Finish Projectcharta draft :milestone, m1, 2026-03-20, 3d
-    
+    Project kick-off and topic definition            :done, a1, 2026-02-24, 4d
+    Stakeholder and user analysis                    :done, a2, 2026-03-02, 10d
+    Draft project charta                             :active, a3, 2026-03-12, 9d
+    Project charta submission                        :milestone, m1, 2026-03-20, 1d
+    Concept feedback / coaching 1                    :milestone, m2, 2026-03-24, 1d
+
     section Data Acquisition and Exploration
-        Acquire data :a3, 2026-03-23, 1d
-        Clean data :a4, 2026-03-27, 4d
-        Exploratory data analysis :a5, 2026-03-31, 5d
-        Discuss data report :milestone, m2, 2026-04-02, 1d
-        
+    Acquire and validate data                        :a4, 2026-03-23, 4d
+    Clean and prepare data                           :a5, 2026-03-27, 6d
+    Exploratory data analysis                        :a6, 2026-04-02, 12d
+    Consolidate data report findings                 :milestone, m3, 2026-04-14, 1d
+
     section Visual Encoding and Design
-        Chart selection :a6, 2026-04-05, 2d
-        Implement overview and comparison charts :a7, 2026-04-19, 14d
-        Implement interactivity and linked filters :a8, 2026-05-03, 14d
-         Refine narrative, annotations, and styling   :a9, 2026-05-06, 3d
-        Complete visualization report :a10, 2026-05-09, 3d
-    section Evaluation
-        Usability checks and revisions :a11, 2026-05-15, 6d
-        Finalize documentation and deployment :a12, 2026-05-19, 4d
-        Prepare final presentation :a13, 2026-05-26, 7d
-        Project presentation : milestone, m2, 2026-06-03, 4m
+    Refine visualization concept                     :a7, 2026-03-25, 14d
+    Chart selection and low-fidelity design          :a8, 2026-04-07, 10d
+    Build overview and comparison views              :a9, 2026-04-16, 12d
+    On-site coaching 2                               :milestone, m4, 2026-04-21, 1d
+    Implement interactivity and linked filters       :a10, 2026-04-24, 12d
+    Online coaching 3                                :milestone, m5, 2026-04-28, 1d
+    Refine narrative, annotations, and styling       :a11, 2026-05-01, 10d
+    On-site coaching 4                               :milestone, m6, 2026-05-05, 1d
+    Complete visualization report                    :a12, 2026-05-08, 8d
+
+    section Evaluation and Finalization
+    Usability checks and revisions                   :a13, 2026-05-12, 10d
+    Finalize documentation and deployment            :a14, 2026-05-19, 10d
+    Prepare final presentation                       :a15, 2026-05-22, 10d
+    Final project submission                         :milestone, m7, 2026-06-01, 1d
+
+    section Closing Phase
+    Presentation rehearsal and final adjustments     :a16, 2026-06-02, 10d
+    Group presentation (tentative, late June)        :milestone, m8, 2026-06-23, 1d
 ```
 
-See [Mermaid syntax for Gantt charts](https://mermaid.js.org/syntax/gantt.html). It might not be displayed correctly in Safari &#8594; use Chrome. [Live editor with export functionality](https://mermaid.live/)
-
 ## Roles and Contact Details
-List the people involved in the development work here with their role titles, tasks and contact details.
+
+The project is developed by a three-person team. Responsibilities are assigned by main work
+package, but the project is carried out collaboratively, with shared review and discussion
+across all major phases.
+
+#### Project team
+
+| Name | Role | Main responsibilities | Contact |
+|:--|:--|:--|:--|
+| Vithujan Shanmugaratnam | Project coordination, user perspective, documentation | Coordinates project progress; supports stakeholder and user analysis; contributes to documentation; helps ensure alignment between user needs, analytical scope, and final presentation | Email: shavit01@students.zhaw.ch<br>GitHub: s-vithu |
+| Francis Lehner | Data analysis and visualization design | Supports data acquisition, data preparation, exploratory analysis, chart selection, and interpretation of analytical findings | Email: lehnefr1@students.zhaw.ch<br>GitHub: FrancisLehner |
+| Brian Bernhauser | Implementation and technical integration | Supports implementation of the Quarto-based visualization product, interaction design, repository integration, and deployment preparation | Email: berbri01@students.zhaw.ch<br>GitHub: MuninsEye |
+
+### Coaching and academic support
+
+| Name | Role | Contribution to project | Contact |
+|:--|:--|:--|:--|
+| Manuel Dömer | Lecturer / course lead | Provides course requirements, academic framing, and overall evaluation context | doem@zhaw.ch |
+| Wibke Weber | Coach / lecturer | Provides coaching feedback on concept, design decisions, and project development | webw@zhaw.ch |
+
+### Shared responsibilities
+
+All team members contribute to the discussion of findings, review of visual and textual
+outputs, refinement after coaching sessions, and preparation of the final group
+presentation. Final deliverables are therefore produced jointly, even where individual team
+members take the lead on specific work packages.
