@@ -568,7 +568,7 @@ The project is developed by a three-person team. Responsibilities are assigned b
 package, but the project is carried out collaboratively, with shared review and discussion
 across all major phases.
 
-#### Project team
+**Project team**
 
 | Name | Role | Main responsibilities | Contact |
 |:--|:--|:--|:--|
@@ -576,7 +576,7 @@ across all major phases.
 | Francis Lehner | Data analysis and visualization design | Supports data acquisition, data preparation, exploratory analysis, chart selection, and interpretation of analytical findings | Email: lehnefr1@students.zhaw.ch<br>GitHub: FrancisLehner |
 | Brian Bernhauser | Implementation and technical integration | Supports implementation of the Quarto-based visualization product, interaction design, repository integration, and deployment preparation | Email: berbri01@students.zhaw.ch<br>GitHub: MuninsEye |
 
-### Coaching and academic support
+**Coaching and academic support**
 
 | Name | Role | Contribution to project | Contact |
 |:--|:--|:--|:--|
