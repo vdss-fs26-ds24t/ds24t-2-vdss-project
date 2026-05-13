@@ -1,147 +1,361 @@
 # Data Report
-All information on the data used in the project is compiled in the data report in order to ensure the traceability and reproducibility of the results and to enable a systematic expansion of the database.
 
-Typically, in the exploratory analysis of the acquired raw data, quality and other issues are identified, which require pre-processing, merging of individual datasets and feature engineering into processed datasets. Therefore, this template provides a separate section for the processed data, which then serves as a starting point for the modelling activities. This needs to be adapted to the specific project requirements.
+All information on the data used in the project is compiled here to ensure traceability and reproducibility of results. The project is based on a single public dataset covering global cybersecurity incidents from 2015 to 2024. The dataset requires no complex merging or feature engineering; this report therefore focuses on the raw dataset characteristics and the light normalisation applied during loading.
+
+```{python}
+#| label: setup
+#| echo: false
+#| output: false
+import warnings
+warnings.filterwarnings("ignore")
+
+import sys
+from pathlib import Path
+
+project_root = Path.cwd().parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+df = pd.read_csv(project_root / "data" / "raw" / "Global_Cybersecurity_Threats_2015-2024.csv")
+
+# normalise column names (same logic as load.py)
+df.columns = (
+    df.columns
+    .str.strip()
+    .str.lower()
+    .str.replace(r"[\s/]+", "_", regex=True)
+    .str.replace(r"[^\w]", "", regex=True)
+)
+
+NUMERIC_COLS = ["financial_loss_in_million_", "number_of_affected_users", "incident_resolution_time_in_hours"]
+CAT_COLS     = ["country", "attack_type", "target_industry", "attack_source",
+                "security_vulnerability_type", "defense_mechanism_used"]
+```
+
 
 ## Raw data
+
 ### Overview Raw Datasets
 
 : Overview of raw datasets used in the project. {#tbl-raw-overview}
 
-| Name | Quelle | Storage location |
-|----------------|-----------------------------------------|--------------------------------------------------------------------------|
-| Dataset 1      | Name/short description of the data source | Link and/or short description of the location where the data is stored, e.g. accessible to the team |
-| Dataset 2      | …                                       | …                                                                        |
+| Name | Source | Storage location |
+|---|---|---|
+| Global Cybersecurity Threats (2015–2024) | Kaggle — atharvasoundankar/global-cybersecurity-threats-2015-2024 | `data/raw/Global_Cybersecurity_Threats_2015-2024.csv` |
 
-### Details Dataset 1
 
-- Description of what information the dataset contains
-- Details of the data source/provider
-- Information on data procurement: description and possibly references to resources (download scripts, tools, online services, ...). Any new team member should be able to acquire the data indepentendently following these instructions.
-- Legal aspects of data use, licences, etc.
-- Data governance aspects: Categorisation of the data based on internal business requirements, e.g. public, business-relevant, personal
-- If applicable: categorisation into dependent (target variable, regressor) and independent (regressor) variables
-- ...
+### Details: Global Cybersecurity Threats (2015–2024)
+
+- **Description**: 3,000 simulated cybersecurity incidents recorded between 2015 and 2024 across ten countries and seven target industries. Each row represents one incident and includes contextual, operational, and outcome variables: country, year, attack type, target industry, financial loss, number of affected users, attack source, exploited vulnerability type, defense mechanism used, and incident resolution time.
+- **Data source / provider**: Published on Kaggle by user *atharvasoundankar*. Dataset URL: [https://www.kaggle.com/datasets/atharvasoundankar/global-cybersecurity-threats-2015-2024](https://www.kaggle.com/datasets/atharvasoundankar/global-cybersecurity-threats-2015-2024)
+- **Data procurement**: Download via the Kaggle API using `data_acquisition/load.py`. Run `python data_acquisition/load.py` from the project root; the script authenticates with Kaggle (requires `KAGGLE_USERNAME` and `KAGGLE_KEY` in `.env`), downloads, and saves the file to `data/raw/`. Any team member with valid Kaggle credentials can reproduce the acquisition independently.
+- **Legal aspects**: Licensed under the Kaggle dataset terms (CC0 / public domain). The data is synthetic / aggregated and does not contain personally identifiable information. Suitable for educational and non-commercial use without restrictions.
+- **Data governance**: Public data. No personal, business-sensitive, or confidential information is present. No special handling or anonymisation is required.
+- **Variable classification**: The dataset is used for descriptive and comparative visualisation only. There is no modelling target variable. `financial_loss_in_million_`, `number_of_affected_users`, and `incident_resolution_time_in_hours` serve as outcome / severity measures. All remaining columns are contextual or categorical grouping variables.
+
 
 #### Data Catalogue
-The data catalogue basically represents an extended schema of a relational database.
+
+: Data catalogue for Global Cybersecurity Threats (2015–2024). {#tbl-data-catalogue}
+
+| Column index | Column name (raw) | Normalised name | Datatype | Values / range | Short description |
+|---|---|---|---|---|---|
+| 1 | Country | `country` | string | Australia, Brazil, China, France, Germany, India, Japan, Russia, UK, USA | Country where the incident was recorded |
+| 2 | Year | `year` | int | 2015–2024 | Year of the incident |
+| 3 | Attack Type | `attack_type` | string | DDoS, Malware, Man-in-the-Middle, Phishing, Ransomware, SQL Injection | Type of cyberattack |
+| 4 | Target Industry | `target_industry` | string | Banking, Education, Government, Healthcare, IT, Retail, Telecommunications | Industry sector targeted by the attack |
+| 5 | Financial Loss (in Million $) | `financial_loss_in_million_` | float | Positive values (USD millions) | Estimated financial loss associated with the incident |
+| 6 | Number of Affected Users | `number_of_affected_users` | int | Positive integers | Number of users impacted by the incident |
+| 7 | Attack Source | `attack_source` | string | Hacker Group, Insider Threat, Nation-state, Unknown | Attributed source or actor behind the attack |
+| 8 | Security Vulnerability Type | `security_vulnerability_type` | string | Misconfiguration, Social Engineering, Third-party Vendor, Unpatched Software, Weak Passwords, Zero-day Exploit | Type of vulnerability exploited |
+| 9 | Defense Mechanism Used | `defense_mechanism_used` | string | AI-based Detection, Antivirus, Employee Training, Encryption, Firewall, Intrusion Detection System, Multi-factor Authentication, VPN | Primary defense mechanism in place at the time of the incident |
+| 10 | Incident Resolution Time (in Hours) | `incident_resolution_time_in_hours` | int | Positive integers | Time taken to resolve the incident, in hours |
 
 
-: Data catalogue for Dataset 1. {#tbl-data-catalogue}
+#### Data Characteristics and Quality
 
-| Column index | Column name |  Datatype | Values (Range, validation rules) | Short description |
-|---|---|---|---|---|
-| 1 |   |   |   |   |
-| 2 |   |   |   |   |
-|   |   |   |   |   |
+The exploratory analysis uses the full dataset of 3,000 incidents. All code is folded by default; click to expand.
 
-
-#### If applicable: Entity Relationship Diagram
-
-
-#### Data Chracteristics and Quality
-
-The methods of exploratory data analysis are used to describe relevant characteristics of the data and identify data quality issues. This includes, for example, 
-
-the univariate andalysis of numerical variables:
-
-* Number or fraction
-    * of unique values
-    * of missing values
-    * of zero values
-    * of negative values
-* Frequency distribution
-* Extreme values (minimum and maximum)
-* Histogram
-* Measures of central tendency:
-    * arithmetic mean
-    * median
-    * mode
-* Measures of dispersion and visualisation of dispersion:
-    * Range
-    * Quantiles and interquartile range (IQR)
-    * Box plot
-    * Variance and standard deviation 
-
-and for categorical variables:
-
-* number of classes
-* and the corresponding distribution of values
-* fraction of missing values
-
-The correlation between variables in the form of
-
-* correlation coefficients (e.g. Pearson, Spearman, Kendall)
-* and corresponding visualizations, e.g. scatter plot, heatmap, grouped box plot (for categorical-numerical relationships), ...
-
-
-The results the exploratory data analysis should be summarised here (code and full output in the `eda` subfolder) and the implications for the subsequent data pre-processing, visualization design and implementation steps should be discussed. Is the data quality and quantity sufficient to achieve the visualisation goals? Is it necessary to acquire additional or different data? Are there any limitations that need to be considered in the design and implementation of the visualisation product? Are there any specific data characteristics that can be used to enhance the visualisation design? For example, if there are a lot of missing values in a dataset, this might need to be taken into account in the design of the visualisation product, e.g. by using specific visual encodings to indicate missing values or by providing options for filtering or imputing missing values. 
-
-Tip: `Ydata-profiling` is a Python library that can be used to perform exploratory data analysis and generate a comprehensive report on the characteristics of the data, including the distribution of values, missing values, correlations between variables, and more. This can be a useful tool to generate the full analysis in the code section and then only include the relevant information here in the data report.
-
-This is an example on how to incorporate executable Python code and show a figure output:
+##### Summary Statistics
 
 ```{python}
-#| label: fig-demo
-#| fig-cap: "Distribution of monthly revenue across product categories (sample data)."
+#| label: tbl-summary-stats
+#| tbl-cap: "Descriptive statistics for numerical variables."
 #| echo: true
 #| code-fold: true
-import matplotlib.pyplot as plt
+df[NUMERIC_COLS].describe().round(2).rename(columns={
+    "financial_loss_in_million_": "Financial Loss (M$)",
+    "number_of_affected_users":  "Affected Users",
+    "incident_resolution_time_in_hours": "Resolution Time (h)"
+})
+```
 
-# Sample data
-categories = ['Electronics', 'Clothing', 'Food', 'Books', 'Sports']
-revenue = [42000, 28500, 35200, 12800, 19400]
+##### Missing Values
 
-# Create the bar chart
-fig, ax = plt.subplots(figsize=(6, 3.75))
+```{python}
+#| label: fig-missing
+#| fig-cap: "Fraction of missing values per column. No column exceeds the 5% threshold."
+#| echo: true
+#| code-fold: true
+missing = df.isnull().mean().sort_values(ascending=False)
 
-bars = ax.bar(categories, revenue, color='#4C78A8', edgecolor='white')
+fig, ax = plt.subplots(figsize=(9, 3.5))
+colors = ["#e8002d" if v > 0.05 else "#4C78A8" for v in missing.values]
+missing.plot.barh(ax=ax, color=colors)
+ax.set_xlabel("Fraction missing")
+ax.set_title("Missing values per column")
+ax.axvline(x=0.05, color="grey", linestyle="--", linewidth=0.8, label="5 % threshold")
+ax.legend()
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+plt.tight_layout()
+plt.show()
+```
 
-ax.set_xlabel('Product Category')
-ax.set_title('Monthly Revenue by Product Category')
+The dataset contains **no missing values** in any column. No imputation or row removal is required.
 
-ax.spines['top'].set_visible(False)
-ax.spines['right'].set_visible(False)
-ax.spines['left'].set_visible(False)
-ax.yaxis.set_visible(False)
-ax.tick_params(axis='x', length=0)
+##### Distributions of Numerical Variables
 
-# Add value labels on bars
-for bar, val in zip(bars, revenue):
-    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 500,
-            f'{val:,.0f}', ha='center', va='bottom', fontsize=9)
+```{python}
+#| label: fig-num-dist
+#| fig-cap: "Histograms of the three numerical outcome variables."
+#| echo: true
+#| code-fold: true
+labels = {
+    "financial_loss_in_million_": "Financial Loss (M$)",
+    "number_of_affected_users":   "Affected Users",
+    "incident_resolution_time_in_hours": "Resolution Time (h)"
+}
+
+fig, axes = plt.subplots(1, 3, figsize=(13, 4))
+for ax, col in zip(axes, NUMERIC_COLS):
+    ax.hist(df[col], bins=40, color="#4C78A8", edgecolor="white", alpha=0.85)
+    ax.axvline(df[col].median(), color="black", linestyle="--", linewidth=1,
+               label=f"Median: {df[col].median():.1f}")
+    ax.set_xlabel(labels[col])
+    ax.set_ylabel("Count")
+    ax.set_title(labels[col])
+    ax.legend(fontsize=8)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
 
 plt.tight_layout()
 plt.show()
 ```
 
-Then the figure can be referenced with @fig-demo.
+```{python}
+#| label: fig-boxplots
+#| fig-cap: "Box plots of numerical outcome variables (outliers shown as points)."
+#| echo: true
+#| code-fold: true
+fig, axes = plt.subplots(1, 3, figsize=(13, 4))
+for ax, col in zip(axes, NUMERIC_COLS):
+    ax.boxplot(df[col].dropna(), vert=True, patch_artist=True,
+               boxprops=dict(facecolor="#4C78A8", color="#4C78A8", alpha=0.6),
+               medianprops=dict(color="black", linewidth=2),
+               flierprops=dict(marker="o", markersize=2, alpha=0.3, color="#4C78A8"))
+    ax.set_ylabel(labels[col])
+    ax.set_title(labels[col])
+    ax.set_xticks([])
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+All three numerical variables show a **broadly uniform distribution** across their respective ranges, which is consistent with the dataset being synthetically generated. There are no extreme outliers and the distributions appear roughly flat with no heavy skew.
+
+##### Distributions of Categorical Variables
+
+```{python}
+#| label: fig-cat-dist
+#| fig-cap: "Value counts for each categorical variable."
+#| echo: true
+#| code-fold: true
+cat_labels = {
+    "country": "Country",
+    "attack_type": "Attack Type",
+    "target_industry": "Target Industry",
+    "attack_source": "Attack Source",
+    "security_vulnerability_type": "Vulnerability Type",
+    "defense_mechanism_used": "Defense Mechanism"
+}
+
+fig, axes = plt.subplots(2, 3, figsize=(15, 9))
+for ax, col in zip(axes.flat, CAT_COLS):
+    counts = df[col].value_counts().sort_values()
+    counts.plot.barh(ax=ax, color="#4C78A8", edgecolor="white")
+    ax.set_title(cat_labels[col])
+    ax.set_xlabel("Count")
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    for bar, val in zip(ax.patches, counts.values):
+        ax.text(bar.get_width() + 5, bar.get_y() + bar.get_height() / 2,
+                str(val), va="center", fontsize=8)
+
+plt.tight_layout()
+plt.show()
+```
+
+All categorical variables are **evenly distributed** across their categories, again consistent with a balanced synthetic dataset. No single country, industry, or attack type dominates the data in a way that would cause representational issues in the visualisation.
+
+##### Year Distribution
+
+```{python}
+#| label: fig-year-dist
+#| fig-cap: "Number of recorded incidents per year (2015–2024)."
+#| echo: true
+#| code-fold: true
+year_counts = df["year"].value_counts().sort_index()
+
+fig, ax = plt.subplots(figsize=(8, 3.5))
+year_counts.plot.bar(ax=ax, color="#4C78A8", edgecolor="white")
+ax.set_xlabel("Year")
+ax.set_ylabel("Number of incidents")
+ax.set_title("Incidents per Year")
+ax.tick_params(axis="x", rotation=0)
+ax.spines["top"].set_visible(False)
+ax.spines["right"].set_visible(False)
+for bar, val in zip(ax.patches, year_counts.values):
+    ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 2,
+            str(val), ha="center", va="bottom", fontsize=8)
+plt.tight_layout()
+plt.show()
+```
+
+##### Correlations Between Numerical Variables
+
+```{python}
+#| label: fig-corr
+#| fig-cap: "Pearson correlation heatmap of the three numerical outcome variables."
+#| echo: true
+#| code-fold: true
+corr = df[NUMERIC_COLS].corr(method="pearson")
+corr.index   = ["Financial Loss", "Affected Users", "Resolution Time"]
+corr.columns = ["Financial Loss", "Affected Users", "Resolution Time"]
+
+fig, ax = plt.subplots(figsize=(5, 4))
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0,
+            square=True, ax=ax, linewidths=0.5, vmin=-1, vmax=1)
+ax.set_title("Pearson Correlation — Numerical Variables")
+plt.tight_layout()
+plt.show()
+```
+
+```{python}
+#| label: fig-pairplot
+#| fig-cap: "Distribution of each numerical outcome variable across attack types."
+#| echo: true
+#| code-fold: true
+col_labels = {
+    "financial_loss_in_million_": "Financial Loss (M$)",
+    "number_of_affected_users":   "Affected Users",
+    "incident_resolution_time_in_hours": "Resolution Time (h)"
+}
+
+fig, axes = plt.subplots(1, 3, figsize=(15, 4))
+for ax, col in zip(axes, NUMERIC_COLS):
+    order = df.groupby("attack_type")[col].median().sort_values(ascending=False).index
+    sns.boxplot(data=df, x="attack_type", y=col, order=order, ax=ax,
+                color="#4C78A8", flierprops=dict(marker="o", markersize=2, alpha=0.3))
+    ax.set_xlabel("")
+    ax.set_ylabel(col_labels[col])
+    ax.set_title(col_labels[col])
+    ax.tick_params(axis="x", rotation=25)
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+fig.suptitle("Numerical Outcomes by Attack Type", y=1.02)
+plt.tight_layout()
+plt.show()
+```
+
+The three numerical outcome variables show **near-zero correlations** with each other, indicating they capture largely independent dimensions of incident severity. Financial loss, affected users, and resolution time can therefore be used as complementary severity measures in the visualisation rather than as redundant representations of the same underlying signal.
+
+##### YData Profiling — Full Report
+
+```{python}
+#| label: profiling
+#| echo: true
+#| code-fold: true
+#| output: false
+from ydata_profiling import ProfileReport
+
+eda_dir = Path.cwd() / "eda"
+eda_dir.mkdir(exist_ok=True)
+
+profile = ProfileReport(
+    df,
+    title="Global Cybersecurity Threats 2015–2024",
+    minimal=True,
+    progress_bar=False,
+)
+profile.to_file(eda_dir / "cybersecurity_profile_report.html")
+```
+
+[Open full interactive profiling report](eda/cybersecurity_profile_report.html){target="_blank"}
+
+##### Implications for Visualisation Design
+
+Based on the exploratory analysis, the following observations are relevant for the visualisation design and implementation:
+
+1. **No missing values**: The dataset is complete. No indicators for missing data or imputation strategies are needed in the visualisation.
+
+2. **Uniform distributions**: Both numerical and categorical variables are evenly distributed. This means no single category dominates the data, which supports fair visual comparisons across countries, industries, attack types, and other dimensions.
+
+3. **Independent severity dimensions**: Financial loss, affected users, and resolution time are uncorrelated, confirming that they measure distinct aspects of incident severity. The visualisation should allow users to switch between these measures rather than combining them into a single metric.
+
+4. **Consistent category counts**: All categorical variables have balanced representation, making sorted bar charts and heatmaps reliable without requiring special handling for sparse categories.
+
+5. **Balanced year coverage**: Approximately 300 incidents per year across all ten years. Trend charts over time will show stable series without abrupt gaps or volume spikes caused by data density differences.
+
+6. **Synthetic data limitations**: The uniform distributions and perfect balance across categories are consistent with a synthetically generated dataset. This limits the strength of causal or comparative claims. All findings should be framed as patterns within the dataset rather than conclusions about real-world cybersecurity trends.
+
 
 ## Processed Data
+
 ### Overview Processed Datasets
 
 : Overview of processed datasets used in the project. {#tbl-processed-overview}
 
-| Name | Quelle | Storage location |
-|----------------|-----------------------------------------|--------------------------------------------------------------------------|
-| Processed Dataset 1      | Name/short description of the data source | Link and/or short description of the location where the data is stored, e.g. accessible to the team |
-| Processed Dataset 2      | …                                       | …                                                                        |
+| Name | Source | Storage location |
+|---|---|---|
+| Normalised incidents | `data_acquisition/load.py` — column normalisation of the raw CSV | In-memory (loaded at render time) |
 
-### Details Processed Dataset 1
+### Details: Normalised Incidents
 
-- Description of what information the dataset contains
-- Details and reasons for the processing steps -> Traceability and ensuring reproducibility
-- How can the data be accessed? Description, scripts, tools, ...
-- ...
+- **Description**: The raw dataset with column names normalised to lowercase snake_case for consistent programmatic access. No rows are added, removed, or aggregated. All values remain unchanged.
+- **Processing steps**:
+    1. Read `data/raw/Global_Cybersecurity_Threats_2015-2024.csv` with `pd.read_csv()`
+    2. Strip whitespace, lowercase, replace spaces and `/` with `_`, remove remaining non-word characters from all column names
+    3. Return the DataFrame as-is
+- **Access**: Call `load()` from `data_acquisition/load.py`. The function downloads the raw file automatically if it is not present.
 
 #### Data Catalogue
 
+The normalised column names are documented in the raw data catalogue above (@tbl-data-catalogue). No new columns are derived and no columns are removed.
 
-#### If applicable: Entity Relationship Diagram
+#### Data Characteristics and Quality
 
+```{python}
+#| label: tbl-processed-quality
+#| tbl-cap: "Row and column counts before and after normalisation."
+#| echo: true
+#| code-fold: true
+summary = pd.DataFrame({
+    "": ["Raw dataset", "Normalised dataset"],
+    "Rows": [len(df), len(df)],
+    "Columns": [10, 10],
+    "Missing values": [df.isnull().sum().sum(), df.isnull().sum().sum()],
+    "Column names changed": ["No", "Yes (lowercase snake_case)"],
+})
+summary.set_index("", inplace=True)
+summary
+```
 
-#### Data Chracteristics and Quality
-
-
-### Details Processed Dataset 2
-...
+Processing introduces no data loss. The normalisation step only affects column name formatting and does not alter any data values or row count.
