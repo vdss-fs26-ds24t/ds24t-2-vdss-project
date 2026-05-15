@@ -1,0 +1,424 @@
+---
+title: "Global Cybersecurity Threats 2015–2024"
+subtitle: "Visualising Incident Patterns Across Countries, Industries, and Attack Characteristics"
+author: "Vithujan Shanmugaratnam, Francis Lehner, Brian Bernhauser"
+format:
+  revealjs:
+    theme: dark
+    slide-number: true
+    footer: "VDSS | Cybersecurity Threat Analysis"
+    code-fold: true
+    fig-align: center
+    smaller: true
+    scrollable: true
+---
+
+```{=html}
+<style>
+.header-section-number::after { content: "."; }
+</style>
+```
+
+```{python}
+#| label: setup
+#| echo: false
+#| output: false
+import warnings
+warnings.filterwarnings("ignore")
+
+import sys
+from pathlib import Path
+
+project_root = Path.cwd().parent
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib
+import seaborn as sns
+
+matplotlib.rcParams.update({
+    "figure.facecolor": "#191919",
+    "axes.facecolor":   "#191919",
+    "text.color":       "white",
+    "axes.labelcolor":  "white",
+    "xtick.color":      "white",
+    "ytick.color":      "white",
+    "axes.edgecolor":   "#555555",
+})
+
+df = pd.read_csv(project_root / "data" / "raw" / "Global_Cybersecurity_Threats_2015-2024.csv")
+df.columns = (
+    df.columns.str.strip().str.lower()
+    .str.replace(r"[\s/]+", "_", regex=True)
+    .str.replace(r"[^\w]", "", regex=True)
+)
+
+NUMERIC_COLS = [
+    "financial_loss_in_million_",
+    "number_of_affected_users",
+    "incident_resolution_time_in_hours"
+]
+```
+
+
+# Why?
+
+## The Problem
+
+**Cybersecurity incidents are growing in frequency and complexity.**
+
+- Security teams must communicate threat patterns to management quickly
+- Raw incident tables are hard to scan and even harder to present
+- Comparing attack frequency versus attack severity requires manual aggregation
+- Patterns across country, industry, attack type, and vulnerability are hidden in tabular data
+
+. . .
+
+**Today's reality:** Analysts export CSVs, build static charts in Excel, and assemble slide decks manually — for every reporting cycle.
+
+## What We Built
+
+An **interactive web-based visual report** that makes patterns in 3,000 cybersecurity incidents immediately visible:
+
+- Trend overview: how incidents evolved from 2015 to 2024
+- Country and industry comparisons by frequency *and* severity
+- Attack type and vulnerability profiles
+- Defense mechanism outcomes
+
+. . .
+
+All in a **single Quarto site** — no manual aggregation, published on GitHub Pages.
+
+
+# For Whom?
+
+## Persona 1 — Sophia, Senior Cybersecurity Analyst {.smaller}
+
+:::: {.columns}
+::: {.column width="60%"}
+- Age 34, works in a security operations environment
+- Prepares internal reports and trend analysis regularly
+- **High** domain expertise and data literacy
+- Uses a 27" desktop monitor
+- Needs analytical depth and cross-category comparison
+
+> *"I need to see which vulnerability types are exploited most in Banking — and whether that's different from Healthcare."*
+:::
+::: {.column width="40%"}
+**Jobs:**
+
+- Analyse attack trends by year, country, industry
+- Compare vulnerabilities and defense outcomes
+- Prepare evidence-based briefings
+
+**Pains:**
+
+- Manually combining static charts is time-consuming
+- Existing summaries don't support multi-dimensional comparison
+- Hard to distinguish frequent threats from severe ones
+:::
+::::
+
+## Persona 2 — Marcus, IT Security Manager {.smaller}
+
+:::: {.columns}
+::: {.column width="60%"}
+- Age 48, responsible for security priorities at management level
+- Communicates risk to senior leadership
+- **Medium** data literacy, limited time for exploration
+- Uses a 14" corporate laptop
+- Needs a clear entry point and fast time-to-insight
+
+> *"Show me the most affected industries and the biggest financial losses — I need to justify our budget priorities."*
+:::
+::: {.column width="40%"}
+**Jobs:**
+
+- Get a quick overview of key threat patterns
+- Identify high-risk sectors and attack types
+- Communicate findings to executive stakeholders
+
+**Pains:**
+
+- Complex dashboards create friction and reduce trust
+- Purely technical views don't translate to management communication
+- Hard to distinguish frequency from severity at a glance
+:::
+::::
+
+
+# Data Source
+
+## Kaggle — Global Cybersecurity Threats (2015–2024)
+
+:::: {.columns}
+::: {.column width="55%"}
+**What is it?**
+
+A public dataset of 3,000 cybersecurity incidents spanning 2015 to 2024, published on Kaggle (CC0 licence).
+
+**What does it cover?**
+
+- 10 countries: Australia, Brazil, China, France, Germany, India, Japan, Russia, UK, USA
+- 7 industries: Banking, Education, Government, Healthcare, IT, Retail, Telecommunications
+- 10 variables per incident
+:::
+::: {.column width="45%"}
+**Variable overview:**
+
+| Variable | Type |
+|---|---|
+| Country, Year | Context |
+| Attack Type, Attack Source | Threat |
+| Target Industry, Vulnerability | Target |
+| Defense Mechanism | Response |
+| Financial Loss (M$) | Severity |
+| Affected Users | Severity |
+| Resolution Time (h) | Severity |
+
+:::
+::::
+
+## Data Acquisition
+
+**Automated download via `data_acquisition/load.py`:**
+
+```python
+import kaggle
+kaggle.api.dataset_download_files(
+    "atharvasoundankar/global-cybersecurity-threats-2015-2024",
+    path="data/raw/", unzip=True
+)
+```
+
+- Credentials stored in `.env` (never committed)
+- Any team member can reproduce the acquisition independently
+- Column names normalised to lowercase snake_case at load time
+- No missing values — no imputation required
+
+
+# Exploratory Data Analysis
+
+## Dataset Overview
+
+```{python}
+#| label: fig-eda-overview
+#| fig-cap: "Incident counts by country and industry."
+#| echo: false
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+
+country_counts = df["country"].value_counts().sort_values()
+country_counts.plot.barh(ax=axes[0], color="#4C78A8", edgecolor="none")
+axes[0].set_title("Incidents by Country")
+axes[0].set_xlabel("Count")
+axes[0].spines["top"].set_visible(False)
+axes[0].spines["right"].set_visible(False)
+
+industry_counts = df["target_industry"].value_counts().sort_values()
+industry_counts.plot.barh(ax=axes[1], color="#F58518", edgecolor="none")
+axes[1].set_title("Incidents by Industry")
+axes[1].set_xlabel("Count")
+axes[1].spines["top"].set_visible(False)
+axes[1].spines["right"].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+All categories are **evenly distributed** — no single country or industry dominates the raw counts.
+
+## Severity Dimensions Are Independent
+
+```{python}
+#| label: fig-eda-corr
+#| fig-cap: "Pearson correlations between the three numerical severity measures."
+#| echo: false
+corr = df[NUMERIC_COLS].corr()
+corr.index   = ["Financial Loss", "Affected Users", "Resolution Time"]
+corr.columns = ["Financial Loss", "Affected Users", "Resolution Time"]
+
+fig, ax = plt.subplots(figsize=(5, 4))
+sns.heatmap(corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0,
+            square=True, ax=ax, linewidths=0.5, vmin=-1, vmax=1,
+            cbar_kws={"shrink": 0.8})
+ax.set_title("Pearson Correlation — Severity Variables", color="white")
+plt.tight_layout()
+plt.show()
+```
+
+Near-zero correlations confirm that **financial loss, affected users, and resolution time measure distinct dimensions** of severity — all three should be surfaced in the visualisation.
+
+## Attack Types and Vulnerability Distribution
+
+```{python}
+#| label: fig-eda-attack
+#| fig-cap: "Distribution of attack types and vulnerability types."
+#| echo: false
+fig, axes = plt.subplots(1, 2, figsize=(11, 4))
+
+attack_counts = df["attack_type"].value_counts().sort_values()
+attack_counts.plot.barh(ax=axes[0], color="#4C78A8", edgecolor="none")
+axes[0].set_title("Attack Types")
+axes[0].set_xlabel("Count")
+axes[0].spines["top"].set_visible(False)
+axes[0].spines["right"].set_visible(False)
+
+vuln_counts = df["security_vulnerability_type"].value_counts().sort_values()
+vuln_counts.plot.barh(ax=axes[1], color="#E45756", edgecolor="none")
+axes[1].set_title("Vulnerability Types")
+axes[1].set_xlabel("Count")
+axes[1].spines["top"].set_visible(False)
+axes[1].spines["right"].set_visible(False)
+
+plt.tight_layout()
+plt.show()
+```
+
+
+# The Visualisation Product
+
+## Structure — From Overview to Detail
+
+The report is divided into **five sections**, supporting both quick orientation and deeper exploration:
+
+| Section | Content | Primary user |
+|---|---|---|
+| **Overview** | KPI cards, headline totals | Marcus (management) |
+| **Trends** | Incident count and severity over 2015–2024 | Both |
+| **Countries & Industries** | Frequency and severity comparisons | Both |
+| **Threat Profiles** | Attack types, vulnerabilities, attack sources | Sophia (analyst) |
+| **Defense & Outcomes** | Defense mechanisms vs. resolution time and loss | Sophia (analyst) |
+
+## Overview Section — Immediate Orientation
+
+:::: {.columns}
+::: {.column width="55%"}
+**KPI cards** at the top of the page:
+
+- Total incidents recorded
+- Average financial loss (M$)
+- Average resolution time (h)
+- Most frequent attack type
+
+**Year trend sparkline** below the cards for immediate temporal context
+
+:::
+::: {.column width="45%"}
+**Why?**
+
+- Addresses Marcus's need for a **fast entry point**
+- Answers "how big is the problem overall?" before any filtering
+- KPI cards are a familiar management communication format
+- Sets scale before comparative charts appear
+:::
+::::
+
+## Trends Section — Temporal Patterns
+
+:::: {.columns}
+::: {.column width="55%"}
+**Line charts** across 2015–2024 for:
+
+- Incident count per year
+- Average financial loss per year
+- Average affected users per year
+- Average resolution time per year
+
+**Metric toggle** to switch between severity dimensions
+:::
+::: {.column width="45%"}
+**Why line charts?**
+
+- Time series data maps naturally to lines
+- Allows users to see whether threats are growing, stable, or declining
+- Metric toggle avoids chart overload while keeping all severity dimensions accessible
+- Directly answers the first research question from the project charta
+:::
+::::
+
+## Countries & Industries — Comparative Views
+
+:::: {.columns}
+::: {.column width="55%"}
+**Sorted bar charts** for country and industry comparisons:
+
+- Switchable metric: count / financial loss / affected users / resolution time
+- Sorted by selected metric so ranking is immediately visible
+
+**Grouped bar chart** for side-by-side severity comparison across countries
+:::
+::: {.column width="45%"}
+**Why sorted bars instead of a map?**
+
+- Dataset contains only 10 countries — precise comparison matters more than geography
+- Sorted bars make ranking unambiguous
+- A choropleth would waste space and add visual complexity without analytical gain
+- Directly addresses Marcus's question: *"Which industries face the greatest losses?"*
+:::
+::::
+
+## Threat Profiles — Attack and Vulnerability Analysis
+
+:::: {.columns}
+::: {.column width="55%"}
+**Heatmaps** for cross-category concentration:
+
+- Attack type × industry
+- Vulnerability type × industry
+- Attack source × country
+
+**Sorted bar charts** for attack type frequency and severity rankings
+:::
+::: {.column width="45%"}
+**Why heatmaps here?**
+
+- Heatmaps efficiently show concentration patterns across two categorical dimensions simultaneously
+- Enables Sophia to answer: *"Which vulnerability types are most common in Banking?"*
+- Colour intensity encodes frequency or severity without requiring separate charts per combination
+:::
+::::
+
+## Defense & Outcomes — Do Defenses Make a Difference?
+
+:::: {.columns}
+::: {.column width="55%"}
+**Box plots** comparing:
+
+- Financial loss distribution by defense mechanism
+- Resolution time distribution by defense mechanism
+- Affected users distribution by defense mechanism
+
+Sorted by median value for easy ranking
+:::
+::: {.column width="45%"}
+**Why box plots?**
+
+- Distributions reveal spread and outliers — not just averages
+- Avoids misleading summary statistics when underlying distributions are wide
+- Enables Sophia to assess whether mechanisms like AI-based Detection or MFA are genuinely associated with better outcomes
+- Supports evidence-based recommendations without causal overclaiming
+:::
+::::
+
+## Design Decisions Summary {.smaller}
+
+| Decision | Rationale |
+|---|---|
+| **Sorted bar charts** over choropleth maps | Only 10 countries — precise ranking more useful than geography |
+| **Metric toggle** (count / loss / users / time) | Avoids chart overload; keeps frequency vs. severity distinction explicit |
+| **Box plots** for defense outcomes | Distributions are more honest than means for skewed severity data |
+| **Heatmaps** for cross-category analysis | Compact representation of two-dimensional categorical relationships |
+| **Section structure** (overview → detail) | Supports both fast management orientation and deeper analyst exploration |
+| **No causal claims** in annotations | Dataset is synthetic and balanced — findings are described as patterns within the data |
+| **GitHub Pages deployment** | Reproducible, version-controlled, accessible without installation |
+
+
+# Thank You {.center}
+
+**Global Cybersecurity Threats 2015–2024**
+
+Vithujan Shanmugaratnam · Francis Lehner · Brian Bernhauser
+
+ZHAW — VDSS Project 2026
