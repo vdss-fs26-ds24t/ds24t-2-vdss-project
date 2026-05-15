@@ -1,0 +1,914 @@
+---
+title: "Global Cybersecurity Threats"
+subtitle: "2015–2024 · Incident Patterns Across Countries, Industries & Attack Vectors"
+author: "Vithujan Shanmugaratnam · Francis Lehner · Brian Bernhauser"
+date: "ZHAW — VDSS Project 2026"
+format:
+  revealjs:
+    theme: dark
+    transition: fade
+    transition-speed: fast
+    slide-number: c/t
+    footer: "VDSS | Global Cybersecurity Threat Analysis 2015–2024"
+    fig-align: center
+    embed-resources: true
+    progress: true
+    code-fold: true
+    highlight-style: github-dark
+    width: 1280
+    height: 720
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{=html}
+<style>
+/* ── Typography & spacing ───────────────────────────── */
+.reveal h1, .reveal h2 { letter-spacing: -0.02em; }
+.reveal h1 { font-size: 2.0em; }
+.reveal h2 { font-size: 1.4em; border-bottom: 2px solid #4FC3F7; padding-bottom: 0.15em; }
+.reveal section { font-size: 0.92em; }
+
+/* ── KPI card grid ──────────────────────────────────── */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+.kpi-card {
+  background: #1e293b;
+  border-radius: 10px;
+  padding: 1.2rem 1rem;
+  text-align: center;
+  border-left: 4px solid;
+}
+.kpi-val  { font-size: 2.0em; font-weight: 700; display: block; line-height: 1.1; }
+.kpi-lbl  { font-size: 0.78em; opacity: 0.7;  display: block; margin-top: 0.3em; }
+
+/* ── Persona cards ──────────────────────────────────── */
+.persona-quote {
+  background: #1e293b;
+  border-left: 4px solid #4FC3F7;
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+  font-style: italic;
+  margin: 0.8rem 0;
+}
+
+/* ── Agenda ─────────────────────────────────────────── */
+.agenda-item {
+  display: flex; align-items: center; gap: 0.8rem;
+  padding: 0.4rem 0;
+}
+.agenda-num {
+  background: #4FC3F7; color: #000;
+  border-radius: 50%; width: 1.6em; height: 1.6em;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.9em; flex-shrink: 0;
+}
+
+/* ── Section divider accent ─────────────────────────── */
+.reveal section.center h1 { border-bottom: 3px solid #4FC3F7; display: inline-block; padding-bottom: 0.2em; }
+</style>
+```
+
+```{python}
+#| label: setup
+#| echo: false
+#| output: false
+import warnings, os
+warnings.filterwarnings("ignore")
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
+import matplotlib
+import seaborn as sns
+import numpy as np
+from pathlib import Path
+
+# ── Robust CSV resolution ────────────────────────────────────────────────────
+# Quarto sets cwd to the document directory; fall back to parent/data/raw.
+_cwd = Path(os.getcwd())
+for _candidate in [
+    _cwd / "Global_Cybersecurity_Threats_2015-2024.csv",
+    _cwd / "data" / "raw" / "Global_Cybersecurity_Threats_2015-2024.csv",
+    _cwd.parent / "data" / "raw" / "Global_Cybersecurity_Threats_2015-2024.csv",
+]:
+    if _candidate.exists():
+        _csv_path = _candidate
+        break
+else:
+    raise FileNotFoundError(
+        "CSV not found. Place 'Global_Cybersecurity_Threats_2015-2024.csv' "
+        "in the same folder as the .qmd file, or in data/raw/ within the project."
+    )
+
+# ── Load & normalise columns ─────────────────────────────────────────────────
+df = pd.read_csv(_csv_path)
+df.columns = (
+    df.columns.str.strip().str.lower()
+    .str.replace(r"[\s/]+", "_", regex=True)
+    .str.replace(r"[^\w]", "",  regex=True)
+)
+
+# Friendly column aliases used throughout
+COL = dict(
+    loss   = "financial_loss_in_million_",
+    users  = "number_of_affected_users",
+    time   = "incident_resolution_time_in_hours",
+    attack = "attack_type",
+    vuln   = "security_vulnerability_type",
+    defense= "defense_mechanism_used",
+    src    = "attack_source",
+    ind    = "target_industry",
+    ctry   = "country",
+    year   = "year",
+)
+
+# ── Consistent dark-theme colour palette ─────────────────────────────────────
+BG    = "#191919"
+BG2   = "#1e293b"   # card bg
+C = dict(
+    blue   = "#4FC3F7",
+    orange = "#FF8A65",
+    green  = "#A5D6A7",
+    red    = "#EF9A9A",
+    yellow = "#FFF176",
+    purple = "#CE93D8",
+    teal   = "#80DEEA",
+)
+CAT7   = [C["blue"], C["orange"], C["green"], C["red"], C["yellow"], C["purple"], C["teal"]]
+CAT6   = CAT7[:6]
+CAT5   = CAT7[:5]
+
+matplotlib.rcParams.update({
+    "figure.facecolor": BG,
+    "axes.facecolor":   BG,
+    "text.color":       "white",
+    "axes.labelcolor":  "white",
+    "xtick.color":      "white",
+    "ytick.color":      "white",
+    "axes.edgecolor":   "#555555",
+    "grid.color":       "#333333",
+    "axes.grid":        True,
+    "axes.grid.axis":   "x",
+    "grid.alpha":       0.3,
+    "font.family":      "sans-serif",
+    "font.size":        12,
+    "axes.titlesize":   14,
+    "axes.labelsize":   12,
+    "figure.dpi":       130,
+})
+
+def clean_axes(ax, grid_axis="x"):
+    """Remove top/right spines and set subtle grid."""
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+    ax.spines["left"].set_color("#555555")
+    ax.spines["bottom"].set_color("#555555")
+    ax.grid(True, axis=grid_axis, alpha=0.25, linewidth=0.8)
+    ax.set_axisbelow(True)
+
+# ── Pre-compute aggregations (fast reuse across slides) ───────────────────────
+# KPI scalars
+kpi_total     = len(df)
+kpi_avg_loss  = df[COL["loss"]].mean()
+kpi_avg_time  = df[COL["time"]].mean()
+kpi_top_atk   = df[COL["attack"]].mode()[0]
+kpi_tot_loss  = df[COL["loss"]].sum()
+
+# Temporal
+yearly = df.groupby(COL["year"]).agg(
+    incidents = (COL["ctry"], "count"),
+    avg_loss  = (COL["loss"],  "mean"),
+    avg_users = (COL["users"], "mean"),
+    avg_time  = (COL["time"],  "mean"),
+).reset_index()
+
+# By industry
+ind_metrics = df.groupby(COL["ind"]).agg(
+    incidents = (COL["ind"],   "count"),
+    avg_loss  = (COL["loss"],  "mean"),
+    avg_users = (COL["users"], "mean"),
+    avg_time  = (COL["time"],  "mean"),
+).reset_index()
+
+# By country
+ctry_metrics = df.groupby(COL["ctry"]).agg(
+    incidents = (COL["ctry"], "count"),
+    avg_loss  = (COL["loss"], "mean"),
+).reset_index()
+
+# Heatmap: attack type × industry
+heat_atk_ind = df.pivot_table(
+    index=COL["attack"], columns=COL["ind"],
+    values=COL["loss"], aggfunc="mean"
+)
+
+# Defense outcomes (sorted by median loss)
+defense_order = (df.groupby(COL["defense"])[COL["loss"]]
+                   .median().sort_values(ascending=True).index.tolist())
+defense_data  = [df[df[COL["defense"]] == d][COL["loss"]].values
+                 for d in defense_order]
+
+# Attack & vulnerability distributions
+atk_counts  = df[COL["attack"]].value_counts().sort_values()
+vuln_counts = df[COL["vuln"]].value_counts().sort_values()
+```
+
+---
+
+## Agenda
+
+<div style="margin-top:1.2rem;">
+<div class="agenda-item"><div class="agenda-num">1</div><span>**Problem & Solution** — Why this project?</span></div>
+<div class="agenda-item"><div class="agenda-num">2</div><span>**Audience** — Who are our users?</span></div>
+<div class="agenda-item"><div class="agenda-num">3</div><span>**Data Source** — Dataset overview & acquisition</span></div>
+<div class="agenda-item"><div class="agenda-num">4</div><span>**Exploratory Analysis** — What the data reveals</span></div>
+<div class="agenda-item"><div class="agenda-num">5</div><span>**Visualisation Product** — Design decisions & live examples</span></div>
+<div class="agenda-item"><div class="agenda-num">6</div><span>**Key Findings & Summary**</span></div>
+</div>
+
+::: notes
+Welcome everyone. We'll move through six sections today, each building on the previous one. The last section shows actual charts from the Quarto site we built.
+:::
+
+# 1 · Problem & Solution {.center}
+
+## The Problem
+
+**Cybersecurity teams drown in raw data — not insight.**
+
+. . .
+
+- Incident tables grow to thousands of rows per reporting cycle
+- Comparing *frequency* vs. *severity* requires manual aggregation
+- Cross-dimensional patterns (country × industry × attack type) stay hidden
+- Every reporting cycle: export CSV → build charts in Excel → assemble slides → repeat
+
+. . .
+
+::: {.callout-warning appearance="minimal"}
+**Today's reality:** Analysts spend hours on mechanics, not analysis.
+:::
+
+::: notes
+The core tension: data is abundant, insight is scarce. The manual workflow is not only slow — it introduces errors every cycle.
+:::
+
+## What We Built
+
+An **interactive, reproducible web report** turning 3,000 raw incidents into navigable insight:
+
+:::: {.columns}
+::: {.column width="50%"}
+**Five analytical sections:**
+
+- Headline KPIs & scale-setting
+- Temporal trends (2015–2024)
+- Country & industry comparisons
+- Attack type & vulnerability profiles
+- Defense mechanism outcomes
+:::
+::: {.column width="50%"}
+**Technical stack:**
+
+- Single **Quarto** document → HTML report
+- Python (pandas · matplotlib · seaborn)
+- Published on **GitHub Pages** — no install required
+- Fully reproducible from a fresh session
+:::
+::::
+
+::: notes
+One Quarto source file renders the entire report. Any team member can re-run it after a new data export and the site updates automatically.
+:::
+
+# 2 · Audience {.center}
+
+## Persona 1 — Sophia, Senior Cybersecurity Analyst
+
+:::: {.columns}
+::: {.column width="58%"}
+**Profile**
+
+- Age 34 · Security Operations Centre
+- Prepares trend analysis and internal reports regularly
+- **High** domain expertise and data literacy
+- 27″ desktop monitor — happy to explore deeply
+
+<div class="persona-quote">
+"I need to see which vulnerability types are most exploited in Banking — and whether that pattern differs from Healthcare."
+</div>
+:::
+::: {.column width="42%"}
+**Jobs to be done**
+
+- Analyse attack trends by year, country, industry
+- Compare vulnerabilities and defense outcomes
+- Produce evidence-based briefings
+
+**Pain points**
+
+- Combining static charts is time-consuming
+- Existing summaries lack multi-dimensional comparison
+- Hard to separate frequent threats from severe ones
+:::
+::::
+
+## Persona 2 — Marcus, IT Security Manager
+
+:::: {.columns}
+::: {.column width="58%"}
+**Profile**
+
+- Age 48 · Responsible for security priorities at management level
+- Communicates risk to senior leadership
+- **Medium** data literacy — limited time for exploration
+- 14″ corporate laptop — needs fast time-to-insight
+
+<div class="persona-quote">
+"Show me the most affected industries and the biggest financial losses. I need to justify our budget priorities."
+</div>
+:::
+::: {.column width="42%"}
+**Jobs to be done**
+
+- Quick overview of key threat patterns
+- Identify high-risk sectors and attack types
+- Communicate findings to executive stakeholders
+
+**Pain points**
+
+- Complex dashboards create friction and reduce trust
+- Technical views don't translate to management communication
+- Can't distinguish frequency from severity at a glance
+:::
+::::
+
+::: notes
+Marcus and Sophia pull in opposite directions on depth vs. speed. The report resolves this tension through a layered design: overview on load, detail on drill-down.
+:::
+
+# 3 · Data Source {.center}
+
+## Kaggle — Global Cybersecurity Threats (2015–2024)
+
+:::: {.columns}
+::: {.column width="55%"}
+**What is it?**
+
+A public dataset of **3,000 cybersecurity incidents** spanning 2015–2024, published on Kaggle under a CC0 licence.
+
+**Scope**
+
+- **10 countries:** AUS · BRA · CHN · FRA · DEU · IND · JPN · RUS · GBR · USA
+- **7 industries:** Banking · Education · Government · Healthcare · IT · Retail · Telecom
+- **10 variables** per incident — no missing values, no imputation required
+:::
+::: {.column width="45%"}
+
+| Variable | Role |
+|---|---|
+| Country, Year | Context |
+| Attack Type, Attack Source | Threat |
+| Target Industry, Vulnerability | Target |
+| Defense Mechanism | Response |
+| Financial Loss (M$) | Severity |
+| Affected Users | Severity |
+| Resolution Time (h) | Severity |
+
+:::
+::::
+
+::: notes
+The dataset is synthetic and evenly balanced — no country or industry dominates raw counts. This means cross-category comparisons are meaningful, and we can describe patterns without worrying about sampling bias.
+:::
+
+## Data Acquisition & Pipeline
+
+**Automated download via `data_acquisition/load.py`:**
+
+```python
+import kaggle
+kaggle.api.dataset_download_files(
+    "atharvasoundankar/global-cybersecurity-threats-2015-2024",
+    path="data/raw/", unzip=True
+)
+```
+
+- API credentials stored in `.env` — never committed to version control
+- Column names normalised to `lowercase_snake_case` at load time
+- Any team member can reproduce acquisition independently
+- Zero missing values — no imputation or exclusion needed
+
+# 4 · Exploratory Analysis {.center}
+
+## At a Glance — Key Numbers
+
+```{python}
+#| label: fig-kpis
+#| fig-cap: "Headline metrics across all 3,000 incidents."
+fig, axes = plt.subplots(1, 4, figsize=(12, 2.6))
+fig.patch.set_facecolor(BG)
+
+kpis = [
+    (f"{kpi_total:,}",         "Total Incidents",           C["blue"]),
+    (f"${kpi_avg_loss:.1f}M",  "Avg. Financial Loss",       C["orange"]),
+    (f"{kpi_avg_time:.0f} h",  "Avg. Resolution Time",      C["red"]),
+    (kpi_top_atk,              "Most Common Attack Type",    C["yellow"]),
+]
+for ax, (val, label, color) in zip(axes, kpis):
+    ax.set_facecolor(BG2)
+    for sp in ax.spines.values():
+        sp.set_edgecolor(color)
+        sp.set_linewidth(2)
+    ax.text(0.5, 0.60, val,   ha="center", va="center",
+            fontsize=20, color=color, fontweight="bold",
+            transform=ax.transAxes, wrap=True)
+    ax.text(0.5, 0.20, label, ha="center", va="center",
+            fontsize=10, color="white", alpha=0.65,
+            transform=ax.transAxes)
+    ax.set_xticks([]); ax.set_yticks([])
+
+plt.tight_layout(pad=1.0)
+plt.show()
+```
+
+::: notes
+The numbers are not surprising in isolation, but they set scale. $49 M average loss and 49-hour average resolution time are the baselines our visualisations measure everything against.
+:::
+
+## Balanced Coverage — Country & Industry
+
+```{python}
+#| label: fig-eda-overview
+#| fig-cap: "Incident counts by country (left) and industry (right). All categories are evenly distributed."
+fig, axes = plt.subplots(1, 2, figsize=(12, 4.2))
+fig.patch.set_facecolor(BG)
+
+# Country
+cc = df[COL["ctry"]].value_counts().sort_values()
+bars_c = axes[0].barh(cc.index, cc.values, color=C["blue"], edgecolor="none", height=0.65)
+axes[0].set_title("Incidents by Country", pad=10)
+axes[0].set_xlabel("Number of Incidents")
+clean_axes(axes[0])
+# Highlight max
+max_c = cc.values.max()
+for bar, v in zip(bars_c, cc.values):
+    if v == max_c:
+        bar.set_color(C["orange"])
+    axes[0].text(v + 3, bar.get_y() + bar.get_height()/2,
+                 f"{v}", va="center", ha="left", fontsize=9, color="white", alpha=0.7)
+
+# Industry
+ic = df[COL["ind"]].value_counts().sort_values()
+bars_i = axes[1].barh(ic.index, ic.values, color=C["teal"], edgecolor="none", height=0.65)
+axes[1].set_title("Incidents by Industry", pad=10)
+axes[1].set_xlabel("Number of Incidents")
+clean_axes(axes[1])
+max_i = ic.values.max()
+for bar, v in zip(bars_i, ic.values):
+    if v == max_i:
+        bar.set_color(C["orange"])
+    axes[1].text(v + 3, bar.get_y() + bar.get_height()/2,
+                 f"{v}", va="center", ha="left", fontsize=9, color="white", alpha=0.7)
+
+plt.tight_layout(pad=1.5)
+plt.show()
+```
+
+All categories are **evenly distributed** — the dataset is synthetic and balanced, making cross-category comparisons meaningful without sampling corrections.
+
+## Three Independent Dimensions of Severity
+
+```{python}
+#| label: fig-eda-corr
+#| fig-cap: "Pearson correlations between the three numerical severity measures."
+corr = df[[COL["loss"], COL["users"], COL["time"]]].corr()
+corr.index   = ["Financial\nLoss", "Affected\nUsers", "Resolution\nTime"]
+corr.columns = ["Financial\nLoss", "Affected\nUsers", "Resolution\nTime"]
+
+fig, ax = plt.subplots(figsize=(5.5, 4.5))
+fig.patch.set_facecolor(BG)
+ax.set_facecolor(BG)
+
+mask = np.zeros_like(corr, dtype=bool)
+np.fill_diagonal(mask, True)  # hide diagonal (always 1)
+
+sns.heatmap(
+    corr, annot=True, fmt=".2f", cmap="RdBu_r", center=0,
+    square=True, ax=ax, linewidths=1, linecolor="#333333",
+    vmin=-1, vmax=1, mask=mask,
+    cbar_kws={"shrink": 0.75, "label": "Pearson r"},
+    annot_kws={"fontsize": 14, "fontweight": "bold"},
+)
+ax.set_title("Pearson Correlation — Severity Dimensions", pad=12, color="white")
+ax.tick_params(colors="white")
+plt.tight_layout()
+plt.show()
+```
+
+Near-zero correlations confirm that **financial loss, affected users, and resolution time are independent** — each adds unique information and all three must be surfaced in the report.
+
+## Attack Types & Vulnerability Distribution
+
+```{python}
+#| label: fig-eda-attack
+#| fig-cap: "Frequency of attack types (left) and vulnerability types (right)."
+fig, axes = plt.subplots(1, 2, figsize=(12, 4.2))
+fig.patch.set_facecolor(BG)
+
+# Attack types
+atk_colors = [C["orange"] if v == atk_counts.max() else C["blue"] for v in atk_counts.values]
+axes[0].barh(atk_counts.index, atk_counts.values, color=atk_colors, edgecolor="none", height=0.65)
+axes[0].set_title("Attack Types", pad=10)
+axes[0].set_xlabel("Incident Count")
+clean_axes(axes[0])
+for i, v in enumerate(atk_counts.values):
+    axes[0].text(v + 3, i, f"{v}", va="center", ha="left", fontsize=9, color="white", alpha=0.7)
+
+# Vulnerability types
+vuln_colors = [C["orange"] if v == vuln_counts.max() else C["red"] for v in vuln_counts.values]
+axes[1].barh(vuln_counts.index, vuln_counts.values, color=vuln_colors, edgecolor="none", height=0.65)
+axes[1].set_title("Security Vulnerability Types", pad=10)
+axes[1].set_xlabel("Incident Count")
+clean_axes(axes[1])
+for i, v in enumerate(vuln_counts.values):
+    axes[1].text(v + 3, i, f"{v}", va="center", ha="left", fontsize=9, color="white", alpha=0.7)
+
+plt.tight_layout(pad=1.5)
+plt.show()
+```
+
+# 5 · Visualisation Product {.center}
+
+## Product Structure — From Overview to Detail
+
+The report is divided into **five sections** supporting both quick orientation and deeper analysis:
+
+| Section | Primary Content | User |
+|---|---|---|
+| **Overview** | KPI cards, headline totals, sparkline | Marcus |
+| **Trends** | Incidents & severity over 2015–2024 | Both |
+| **Countries & Industries** | Frequency and severity rankings | Both |
+| **Threat Profiles** | Attack types, vulnerabilities, attack sources | Sophia |
+| **Defense & Outcomes** | Mechanisms vs. resolution time & loss | Sophia |
+
+::: notes
+The overview-to-detail principle means Marcus gets his answer on page load, while Sophia can keep scrolling. No user has to wade through complexity they don't need.
+:::
+
+## Overview — Setting Scale Immediately
+
+:::: {.columns}
+::: {.column width="44%"}
+**Design rationale**
+
+- KPI cards answer "how big is the problem?" before any filtering
+- Familiar management communication format for Marcus
+- Sparkline gives temporal context without needing a full trend chart
+
+**What's surfaced**
+
+- Total incident count
+- Average & total financial loss
+- Average resolution time
+- Most frequent attack type
+:::
+::: {.column width="56%"}
+```{python}
+#| label: fig-prod-kpi
+fig, axes = plt.subplots(2, 2, figsize=(6.2, 3.8))
+fig.patch.set_facecolor(BG)
+kpis2 = [
+    (f"{kpi_total:,}",              "Total Incidents",        C["blue"]),
+    (f"${kpi_tot_loss:,.0f}M",      "Total Financial Loss",   C["orange"]),
+    (f"${kpi_avg_loss:.1f}M",       "Avg. Loss per Incident", C["red"]),
+    (f"{kpi_avg_time:.0f} h",       "Avg. Resolution Time",   C["purple"]),
+]
+for ax, (val, label, color) in zip(axes.flatten(), kpis2):
+    ax.set_facecolor(BG2)
+    for sp in ax.spines.values():
+        sp.set_edgecolor(color); sp.set_linewidth(2)
+    ax.text(0.5, 0.60, val, ha="center", va="center",
+            fontsize=17, color=color, fontweight="bold", transform=ax.transAxes)
+    ax.text(0.5, 0.18, label, ha="center", va="center",
+            fontsize=9, color="white", alpha=0.65, transform=ax.transAxes)
+    ax.set_xticks([]); ax.set_yticks([])
+plt.tight_layout(pad=0.8)
+plt.show()
+```
+:::
+::::
+
+## Trends — How Threats Evolved Over a Decade
+
+:::: {.columns}
+::: {.column width="44%"}
+**Why line charts?**
+
+- Time-series data maps naturally to connected lines
+- Filled area emphasises cumulative scale
+- Metric toggle (count / loss / users / time) avoids chart overload while keeping all severity dimensions accessible
+
+**Design choice:** keep one metric visible at a time to prevent cognitive overload
+:::
+::: {.column width="56%"}
+```{python}
+#| label: fig-prod-trend
+fig, ax = plt.subplots(figsize=(6.5, 4))
+fig.patch.set_facecolor(BG)
+ax.set_facecolor(BG)
+
+ax.plot(yearly[COL["year"]], yearly["incidents"],
+        color=C["blue"], linewidth=2.5, marker="o",
+        markersize=6, markerfacecolor=C["orange"], markeredgewidth=0)
+ax.fill_between(yearly[COL["year"]], yearly["incidents"],
+                alpha=0.12, color=C["blue"])
+
+# Annotate min and max
+idx_max = yearly["incidents"].idxmax()
+idx_min = yearly["incidents"].idxmin()
+for idx, va, offset in [(idx_max, "bottom", 4), (idx_min, "top", -4)]:
+    ax.annotate(
+        f'{yearly.loc[idx, "incidents"]}',
+        xy=(yearly.loc[idx, COL["year"]], yearly.loc[idx, "incidents"]),
+        xytext=(0, offset), textcoords="offset points",
+        ha="center", va=va, fontsize=10,
+        color=C["orange"] if va == "bottom" else C["red"],
+        fontweight="bold"
+    )
+
+ax.set_title("Cybersecurity Incidents per Year", pad=10)
+ax.set_xlabel("Year")
+ax.set_ylabel("Incident Count")
+ax.set_xticks(yearly[COL["year"]])
+ax.tick_params(axis="x", rotation=45)
+clean_axes(ax, grid_axis="y")
+plt.tight_layout()
+plt.show()
+```
+:::
+::::
+
+## Countries & Industries — Ranking What Matters
+
+:::: {.columns}
+::: {.column width="44%"}
+**Why sorted bars — not a map?**
+
+- Dataset contains only 10 countries → precise ranking outweighs geography
+- Sorted bars make order unambiguous at a glance
+- A choropleth would add visual complexity without analytical gain
+
+**Metric toggle:** count / loss / users / resolution time lets Marcus and Sophia pull the same chart for different answers
+:::
+::: {.column width="56%"}
+```{python}
+#| label: fig-prod-industry
+ind_sorted = ind_metrics.sort_values("avg_loss")
+bar_colors = [C["orange"] if v == ind_sorted["avg_loss"].max() else C["blue"]
+              for v in ind_sorted["avg_loss"]]
+
+fig, ax = plt.subplots(figsize=(6.5, 4))
+fig.patch.set_facecolor(BG)
+ax.set_facecolor(BG)
+
+ax.barh(ind_sorted[COL["ind"]], ind_sorted["avg_loss"],
+        color=bar_colors, edgecolor="none", height=0.65)
+for i, v in enumerate(ind_sorted["avg_loss"]):
+    ax.text(v + 0.4, i, f"${v:.1f}M", va="center", ha="left",
+            fontsize=9, color="white", alpha=0.75)
+
+ax.set_title("Average Financial Loss by Industry", pad=10)
+ax.set_xlabel("Avg. Loss (M$)")
+clean_axes(ax, grid_axis="x")
+ax.spines["left"].set_visible(False)
+ax.tick_params(left=False)
+plt.tight_layout()
+plt.show()
+```
+:::
+::::
+
+::: notes
+Sophia uses this chart by industry. Marcus uses it to justify budget allocation toward the hardest-hit sectors.
+:::
+
+## Threat Profiles — Concentration at a Glance
+
+:::: {.columns}
+::: {.column width="44%"}
+**Why heatmaps?**
+
+- Encode two categorical dimensions (attack × industry) without requiring separate charts per combination
+- Colour intensity immediately highlights concentration
+- Answers Sophia's question: *"Which vulnerability types are most common in Banking?"*
+
+**No causal claims** — dataset is synthetic; patterns are described as within-data observations
+:::
+::: {.column width="56%"}
+```{python}
+#| label: fig-prod-heatmap
+fig, ax = plt.subplots(figsize=(6.8, 4.2))
+fig.patch.set_facecolor(BG)
+ax.set_facecolor(BG)
+
+# Custom colourmap that respects dark background
+cmap = sns.color_palette("YlOrRd", as_cmap=True)
+sns.heatmap(
+    heat_atk_ind, ax=ax,
+    cmap=cmap, annot=True, fmt=".0f",
+    linewidths=0.8, linecolor="#222222",
+    cbar_kws={"label": "Avg. Loss (M$)", "shrink": 0.85},
+    annot_kws={"fontsize": 9, "color": "black"},
+)
+ax.set_title("Avg. Financial Loss: Attack Type × Industry", pad=10, color="white")
+ax.set_xlabel("")
+ax.set_ylabel("")
+ax.tick_params(colors="white")
+plt.tight_layout()
+plt.show()
+```
+:::
+::::
+
+## Defense & Outcomes — Do Defenses Make a Difference?
+
+:::: {.columns}
+::: {.column width="44%"}
+**Why box plots?**
+
+- Distributions reveal spread and outliers — not just averages
+- Avoids misleading summary statistics when underlying data is wide
+- Sorted by median → ranking is immediately visible
+
+**Key question for Sophia:** Are mechanisms like AI-based Detection or Encryption genuinely associated with lower losses — or is it noise?
+:::
+::: {.column width="56%"}
+```{python}
+#| label: fig-prod-boxplot
+fig, ax = plt.subplots(figsize=(6.5, 4))
+fig.patch.set_facecolor(BG)
+ax.set_facecolor(BG)
+
+bp = ax.boxplot(
+    defense_data, vert=False, patch_artist=True,
+    medianprops=dict(color="white", linewidth=2.5),
+    boxprops=dict(linewidth=0),
+    whiskerprops=dict(color="#888888", linewidth=1.2),
+    capprops=dict(color="#888888", linewidth=1.2),
+    flierprops=dict(marker="o", markerfacecolor="#555555",
+                    markersize=3, markeredgewidth=0, alpha=0.4),
+)
+for patch, color in zip(bp["boxes"], CAT5):
+    patch.set_facecolor(color)
+    patch.set_alpha(0.75)
+
+ax.set_yticks(range(1, len(defense_order) + 1))
+ax.set_yticklabels(defense_order)
+ax.set_title("Financial Loss Distribution by Defense Mechanism", pad=10)
+ax.set_xlabel("Financial Loss (M$)")
+clean_axes(ax, grid_axis="x")
+ax.spines["left"].set_visible(False)
+ax.tick_params(left=False)
+plt.tight_layout()
+plt.show()
+```
+:::
+::::
+
+::: notes
+The overlapping distributions suggest the dataset's synthetic nature — real-world data would likely show sharper separation. We annotate this caveat directly in the report.
+:::
+
+## Design Decisions — Summary
+
+| Decision | Rationale |
+|---|---|
+| **Sorted bar charts** over choropleth maps | Only 10 countries — ranking beats geography |
+| **Metric toggle** (count / loss / users / time) | Explicit frequency vs. severity distinction; avoids chart overload |
+| **Box plots** for defense outcomes | Distributions are more honest than means for skewed severity data |
+| **Heatmaps** for cross-category analysis | Compact, two-dimensional categorical relationships |
+| **Overview → detail** structure | Fast entry for Marcus; depth for Sophia |
+| **No causal claims** in annotations | Dataset is synthetic — findings described as within-data patterns |
+| **GitHub Pages deployment** | Reproducible, version-controlled, no installation required |
+
+# 6 · Key Findings & Summary {.center}
+
+## What the Data Tells Us
+
+```{python}
+#| label: fig-summary
+#| fig-cap: "Top: incident trend over time. Bottom-left: loss by industry. Bottom-right: defense outcome distributions."
+fig = plt.figure(figsize=(12, 5.5))
+fig.patch.set_facecolor(BG)
+gs = fig.add_gridspec(2, 2, hspace=0.45, wspace=0.35)
+
+# ── Trend ────────────────────────────────────────────
+ax1 = fig.add_subplot(gs[0, :])
+ax1.set_facecolor(BG)
+ax1.plot(yearly[COL["year"]], yearly["avg_loss"],
+         color=C["orange"], linewidth=2.5, marker="o", markersize=5,
+         markerfacecolor="white", markeredgewidth=0)
+ax1.fill_between(yearly[COL["year"]], yearly["avg_loss"], alpha=0.12, color=C["orange"])
+ax1.set_title("Average Financial Loss per Year (M$)", pad=8)
+ax1.set_xlabel(""); ax1.set_xticks(yearly[COL["year"]])
+ax1.tick_params(axis="x", rotation=45, labelsize=9)
+clean_axes(ax1, grid_axis="y")
+
+# ── Industry loss ─────────────────────────────────────
+ax2 = fig.add_subplot(gs[1, 0])
+ax2.set_facecolor(BG)
+ind_s = ind_metrics.sort_values("avg_loss")
+bar_c2 = [C["orange"] if v == ind_s["avg_loss"].max() else C["blue"]
+           for v in ind_s["avg_loss"]]
+ax2.barh(ind_s[COL["ind"]], ind_s["avg_loss"], color=bar_c2, edgecolor="none", height=0.6)
+ax2.set_title("Avg. Loss by Industry (M$)", pad=8, fontsize=12)
+ax2.set_xlabel("M$", fontsize=10)
+clean_axes(ax2, grid_axis="x")
+ax2.tick_params(labelsize=9)
+
+# ── Defense box ───────────────────────────────────────
+ax3 = fig.add_subplot(gs[1, 1])
+ax3.set_facecolor(BG)
+bp2 = ax3.boxplot(
+    defense_data, vert=False, patch_artist=True,
+    medianprops=dict(color="white", linewidth=2),
+    boxprops=dict(linewidth=0),
+    whiskerprops=dict(color="#888888"), capprops=dict(color="#888888"),
+    flierprops=dict(marker="o", markerfacecolor="#555555",
+                    markersize=2, markeredgewidth=0, alpha=0.3),
+)
+for patch, color in zip(bp2["boxes"], CAT5):
+    patch.set_facecolor(color); patch.set_alpha(0.75)
+ax3.set_yticks(range(1, len(defense_order) + 1))
+ax3.set_yticklabels(defense_order, fontsize=9)
+ax3.set_title("Loss by Defense Mechanism", pad=8, fontsize=12)
+ax3.set_xlabel("M$", fontsize=10)
+clean_axes(ax3, grid_axis="x")
+
+plt.show()
+```
+
+::: notes
+The three panels together tell the story: loss is stable year-on-year (no clear escalation), varies moderately by industry, and distributions overlap heavily across defense types — a finding worth investigating with richer, real-world data.
+:::
+
+## Summary & Next Steps
+
+:::: {.columns}
+::: {.column width="55%"}
+**What we delivered**
+
+- A **single-source, reproducible** Quarto report rendering to GitHub Pages
+- Five analytical sections covering trend, geography, industry, threat, and defense
+- Dual-persona design: fast overview for Marcus, depth for Sophia
+- All charts use consistent, accessible colour coding and honest distribution displays
+
+**Key data findings**
+
+- Severity dimensions (loss, users, time) are statistically independent
+- All countries and industries share similar incident exposure
+- Defense mechanism outcomes overlap widely in this synthetic dataset
+:::
+::: {.column width="45%"}
+**If extended with real data:**
+
+- Replace balanced synthetic records with live SIEM exports
+- Add interactive filters (Plotly / Observable) for sector-specific drilldown
+- Introduce time-lagged correlations between attack volume and financial impact
+- Automate periodic refresh via GitHub Actions
+
+::: {.callout-note appearance="minimal"}
+**Reproducibility:** The entire report renders from a fresh Python environment with a single `quarto render` command.
+:::
+:::
+::::
+
+---
+
+## {.center}
+
+<br>
+
+**Global Cybersecurity Threats 2015–2024**
+
+*A Visual Data Story for Security Teams*
+
+<br>
+
+Vithujan Shanmugaratnam · Francis Lehner · Brian Bernhauser
+
+**ZHAW — VDSS Project 2026**
+
+<br>
+
+::: {style="font-size:0.8em; opacity:0.55;"}
+Data: Kaggle CC0 · Built with Quarto + Python · Source on GitHub
+:::

@@ -62,7 +62,6 @@ NUMERIC_COLS = [
 ]
 ```
 
-
 # Why?
 
 ## The Problem
