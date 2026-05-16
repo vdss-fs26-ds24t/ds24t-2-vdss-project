@@ -13,11 +13,6 @@ format:
     scrollable: true
 ---
 
-```{=html}
-<style>
-.header-section-number::after { content: "."; }
-</style>
-```
 
 ```{python}
 #| label: setup
@@ -62,6 +57,53 @@ NUMERIC_COLS = [
 ]
 ```
 
+# Presentation Context
+
+## Topic, Goal and Feedback
+
+:::: {.columns}
+::: {.column width="50%"}
+
+**Topic and main goal**
+
+We develop a web-based visual report for exploring cybersecurity incident patterns from 2015 to 2024.
+
+The goal is to make differences between countries, industries, attack types, vulnerabilities, and severity measures easier to understand and communicate.
+
+**Target audience**
+
+- Cybersecurity analysts
+- IT security managers
+
+:::
+::: {.column width="50%"}
+
+**Narrative approach**
+
+The presentation follows an overview-to-detail structure: problem, user needs, dataset, exploratory findings, and visualisation concept.
+
+**Feedback requested**
+
+- Are the selected visualisation elements suitable?
+- Is the distinction between frequency and severity clear?
+- Is the structure useful for both analysts and managers?
+
+:::
+::::
+
+## Project Goal and Success Criteria {.smaller}
+
+**Project goal**
+
+Create an accessible visualisation product that helps users identify and compare cybersecurity incident patterns across countries, industries, attack types, vulnerabilities, and severity dimensions.
+
+**Success criteria**
+
+- Quick understanding of the dataset structure
+- Clear separation of frequency and severity
+- Main patterns visible without reading raw tables
+- Useful for management orientation and analyst exploration
+- Reproducible through GitHub, Quarto, and documented code
 
 # Why?
 
