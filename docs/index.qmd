@@ -1,16 +1,24 @@
-# Overview 
+---
+title: "Overview"
+number-sections: false
+---
 
-This documentation describes the conception, development and evaluation of a data visualisation product. The goal of the project is to ....
+This documentation describes the conception, development and evaluation of a data visualisation product for exploring global cybersecurity incidents from 2015 to 2024.
 
-![The vizualization product development process](pics/vizproductprocess.png){#fig-vizprocess}
+The project is based on the public Kaggle dataset **Global Cybersecurity Threats (2015–2024)** and focuses on descriptive and comparative analysis. The goal of the project is to make patterns across countries, industries, attack types, vulnerabilities and severity dimensions easier to explore, compare and communicate.
 
-The methodological procedure of this work follows the process model shown in @fig-vizprocess, which is based on the concepts on data product development outlined in @DoemerKempf2022_1000150238 and the [data science project-template](https://github.com/phonosync/dataviz-project-template) on github.
+The resulting visualisation product is designed as an online visual report. It supports two main user groups: cybersecurity analysts who need detailed cross-category comparisons, and IT security managers who need a fast, management-oriented overview of key threat patterns.
 
-It comprises the following four main phases with the corresponding documentation artefacts:
+![The visualisation product development process](pics/vizproductprocess.png){#fig-vizprocess}
 
-* **Project Understanding** &rarr; [Project Charta](project_charta.qmd): Context analysis, stakeholder and user analysis (based on the Value Proposition Canvas), formulation of objectives, success criteria, constraints and the visualization concept.
-* **Data Acquisition and Exploration** &rarr; [Data Report](data_report.qmd): Identification and acquisition of relevant data sources, followed by exploratory data analysis to understand data quality and structure.
-* **Visual Encoding and Design** &rarr; [Visualization Design Report](viz_design_report.qmd): Documentation of the data-to-visual mapping, layout and composition, interaction design, visual style and the resulting prototype(s).
-* **Evaluation** &rarr; [Evaluation Report](evaluation.qmd): Assessment of the developed prototype based on success criteria outlined in the project charta, evaluation of stakeholder feedback, checkpoint decision and, if applicable, gathering additional requirements and planning of the deployment.
-* **Deployment** &rarr; [Deployment Report](deployment.qmd): Description of the software architecture and deployment process, as well as the integration of the visualization product into the target environment and processes.
+The methodological procedure of this work follows the process model shown in @fig-vizprocess, which is based on the concepts on data product development outlined in @DoemerKempf2022_1000150238 and the [data science project-template](https://github.com/phonosync/dataviz-project-template) on GitHub.
 
+It comprises the following main phases with the corresponding documentation artefacts:
+
+* **Project Understanding** &rarr; [Project Charta](project_charta.qmd): Context analysis, stakeholder and user analysis, formulation of objectives, success criteria, constraints and the visualisation concept.
+* **Data Acquisition and Exploration** &rarr; [Data Report](data_report.qmd): Identification and acquisition of the dataset, followed by exploratory data analysis to understand data quality, structure, distributions and limitations.
+* **Visual Encoding and Design** &rarr; [Visualization Design Report](viz_design_report.qmd): Documentation of the data-to-visual mapping, layout and composition, interaction design, visual style and the resulting prototype.
+* **Evaluation** &rarr; [Evaluation Report](evaluation.qmd): Assessment of the developed prototype based on the success criteria outlined in the project charta, including stakeholder feedback and improvement decisions.
+* **Deployment** &rarr; [Deployment Report](deployment.qmd): Description of the software architecture, publication process and deployment of the visualisation product through GitHub Pages.
+
+The presentation media used for the group presentation are available here: [Global Cybersecurity Threats 2015–2024](presentation.qmd).
