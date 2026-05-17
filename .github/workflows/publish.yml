@@ -24,15 +24,26 @@ jobs:
       - name: Install librsvg
         run: sudo apt-get install librsvg2-bin
 
+      # 1. Set up Python on the runner
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' 
+
+      # 2. Install and configure uv
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # 3. Set up Quarto
       - name: Set up Quarto
         uses: quarto-dev/quarto-actions/setup@v2
         with:
           tinytex: true
 
+      # 4. Render using uv to provide jupyter and nbformat on the fly
       - name: Render Quarto project
-        uses: quarto-dev/quarto-actions/render@v2
-        with:
-          path: docs
+        run: |
+          uv run --with jupyter --with nbformat quarto render docs
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
