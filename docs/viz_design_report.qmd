@@ -2,69 +2,200 @@
 This report documents the visual encoding and design decisions made during the development of the visualization product. It translates the visualization concept outlined in the [Project Charta](project_charta.qmd) into concrete design specifications and documents the resulting prototype(s).
 
 ## Design Overview
-Briefly summarise the visualization concept from the Project Charta and describe any refinements or changes that emerged during the design process. Reference the project objectives and user needs that drive the design.
+
+The visualization product is an interactive, multi-view dashboard titled **Global Cybersecurity Threats 2015–2024**. It enables users to explore 3,000 simulated cybersecurity incidents recorded across ten countries, seven target industries, and six attack types over a ten-year period.
+
+The core concept is a coordinated dashboard with a shared severity-metric selector (Financial Loss, Affected Users, or Resolution Time), allowing users to switch between three independent dimensions of incident impact without redundancy — a design choice directly motivated by the near-zero correlations between these outcomes identified in the [Data Report](data_report.qmd). The dashboard emphasises comparative exploration: across countries, attack types, target industries, attack sources, and vulnerability types, all displayed simultaneously and linked through a common filter state.
+
+No major conceptual departures from the Project Charta were introduced. The primary refinement during design was the decision to treat the three numerical severity metrics as mutually exclusive selector states rather than simultaneous multi-panel comparisons, which reduces visual complexity while preserving full analytical coverage.
 
 ## Data-to-Visual Mapping
-Document the mapping of data variables to visual channels. For each view or chart in the visualization product, describe:
 
-* **Data variables**: Which variables from the processed datasets (see [Data Report](data_report.qmd)) are represented?
-* **Marks**: What geometric primitives are used to represent data items – points, lines, areas, volumes?
-* **Visual channels**: How are data attributes encoded – position, length, angle, area, colour hue, colour saturation, brightness, shape, orientation, texture?
-* **Scale and axis design**: What scales are used (linear, logarithmic, categorical, temporal)? How are axes labelled and annotated?
-* **Colour design**: What colour palette is used and why? Consider colour-blindness accessibility (e.g. using `viridis`, `ColorBrewer` palettes) and semantic colour mappings (e.g. red for negative, green for positive).
+The dashboard draws exclusively from the normalised incidents dataset (`data/processed/normalised_incidents.csv`; see [Data Report](data_report.qmd), §2). All ten columns are represented across the five views described below.
 
-A tabular overview can help provide a quick summary:
+### View 1 — Incidents Over Time (Line / Bar Chart)
+
+* **Data variables**: `year` (temporal, 2015–2024), selected severity metric (`financial_loss_in_million_`, `number_of_affected_users`, or `incident_resolution_time_in_hours`)
+* **Marks**: Vertical bars (one per year) with an optional smoothed trend line overlay
+* **Visual channels**: x-position encodes year (temporal), bar length / y-position encodes the aggregated (mean or sum) value of the active severity metric, colour hue distinguishes the trend line from the bars
+* **Scale and axis design**: x-axis is categorical/ordinal (years 2015–2024, no gaps); y-axis is linear, starting at zero, labelled in appropriate units (M$ / user count / hours). Axis labels are rotated 0° for readability.
+* **Colour design**: Bars use the primary brand blue (`#4C78A8`); trend line uses a contrasting neutral (`#E45756`) for visibility
+
+### View 2 — Geographic Distribution (Choropleth Map)
+
+* **Data variables**: `country` (categorical, 10 values), selected severity metric
+* **Marks**: Filled polygons (country areas on a world map, clipped to the ten countries present)
+* **Visual channels**: Colour saturation/lightness encodes the aggregated severity value per country (sequential scale, darker = higher)
+* **Scale and axis design**: No traditional axes; a colour legend bar is anchored to the right of the map. Country names serve as hover labels.
+* **Colour design**: Sequential single-hue palette (`Blues` from ColorBrewer) for the fill. A diverging palette was considered but rejected because no meaningful zero-centred comparison exists in this context. The sequential palette remains accessible for the most common forms of colour-vision deficiency.
+
+### View 3 — Attack Type Breakdown (Horizontal Bar Chart)
+
+* **Data variables**: `attack_type` (categorical, 6 values), selected severity metric
+* **Marks**: Horizontal bars (one per attack type)
+* **Visual channels**: Bar length (x-position) encodes the aggregated severity value; y-position encodes attack type category; colour hue optionally encodes category identity
+* **Scale and axis design**: x-axis is linear, starting at zero; y-axis is categorical and sorted by descending bar length to support rank reading
+* **Colour design**: Qualitative palette (`Tableau 10`) to distinguish attack types; the same mapping is reused in View 5 for perceptual consistency
+
+### View 4 — Industry Heatmap (Heatmap)
+
+* **Data variables**: `target_industry` (categorical, 7 values), `attack_type` (categorical, 6 values), selected severity metric
+* **Marks**: Filled rectangles (cells of a 7 × 6 matrix)
+* **Visual channels**: x-position encodes attack type; y-position encodes target industry; colour saturation encodes the mean severity value in each cell
+* **Scale and axis design**: Both axes are categorical with no natural ordering; categories are sorted alphabetically. A sequential colour legend is displayed alongside.
+* **Colour design**: `YlOrRd` (ColorBrewer sequential) — chosen for its perceptual linearity and widespread familiarity in risk/heat contexts. Colourblind-safe for protanopia and deuteranopia.
+
+### View 5 — Source & Vulnerability Breakdown (Grouped / Stacked Bar Chart)
+
+* **Data variables**: `attack_source` (categorical, 4 values), `security_vulnerability_type` (categorical, 6 values), selected severity metric
+* **Marks**: Grouped horizontal bars (one group per attack source, bars within each group represent vulnerability types)
+* **Visual channels**: Bar length encodes aggregated severity; y-position encodes attack source; colour hue encodes vulnerability type (qualitative)
+* **Scale and axis design**: x-axis is linear; y-axis and colour legend are categorical
+* **Colour design**: `Set2` (ColorBrewer qualitative) — six colours for six vulnerability types, chosen for colour-blindness robustness
+
+### Encoding Summary
 
 : Data-to-visual mapping overview. {#tbl-encoding-overview}
 
 | View / Chart | Data variables | Mark type | Visual channels | Scale |
 |---|---|---|---|---|
-| e.g. Sales by Region | region (cat.), revenue (quant.) | bar | x-position, length, colour hue | categorical, linear |
-| ... | ... | ... | ... | ... |
+| Incidents Over Time | `year`, severity metric | bar + line | x-position (year), length (severity) | ordinal, linear |
+| Geographic Distribution | `country`, severity metric | area (choropleth) | colour lightness (severity) | categorical, sequential |
+| Attack Type Breakdown | `attack_type`, severity metric | horizontal bar | length (severity), y-position (type) | categorical, linear |
+| Industry × Attack Heatmap | `target_industry`, `attack_type`, severity metric | rectangle | x/y-position (categories), colour (severity) | categorical × categorical, sequential |
+| Source & Vulnerability | `attack_source`, `security_vulnerability_type`, severity metric | grouped horizontal bar | length (severity), colour hue (vuln. type) | categorical, linear |
 
 ## Layout and Composition
-Describe how individual views are composed into the overall visualization product:
 
-* **Spatial arrangement**: How are views arranged on the screen or page? Grid layout, free-form, scrollable narrative, etc.
-* **Coordination between views**: Are views linked (e.g. brushing and linking, shared filters, coordinated highlighting)?
-* **Hierarchy and navigation**: How does the user navigate between different levels of detail or different thematic sections?
-* **Responsive design**: How does the layout adapt to different screen sizes and devices, if applicable?
+**Spatial arrangement**: The dashboard uses a fixed two-row grid layout optimised for a 1280 px wide viewport. The top row spans the full width and contains the severity-metric toggle control and the Incidents Over Time chart. The bottom row divides into three equal columns containing the Geographic Distribution map (left), the Attack Type Breakdown (centre), and the Industry Heatmap (right). The Source & Vulnerability chart is placed below the grid as a full-width panel, visible on scroll.
 
-Include annotated wireframes or layout sketches to illustrate the composition.
+**Coordination between views**: All five views share a single severity-metric selector (radio buttons: Financial Loss / Affected Users / Resolution Time). Changing the selector triggers a coordinated re-render of all charts simultaneously, so all views always reflect the same metric. Additionally, clicking a country in the choropleth filters the Attack Type and Industry Heatmap views to that country only, with a visible active-filter badge and a reset button. This brushing-and-linking interaction supports drill-down from geographic context to attack-level detail.
+
+**Hierarchy and navigation**: The page is a single-screen narrative with one scroll depth. The severity selector and the time-trend chart are anchored at the top as primary orientation; the comparative breakdowns follow below. No tab navigation or pagination is used, as the total number of views is small enough for a single scrollable page.
+
+**Responsive design**: The layout collapses to a single-column stacked arrangement on viewports narrower than 768 px (tablet/mobile), with the choropleth map replaced by a ranked country bar chart to avoid distortion at small sizes. Font sizes and legend positions are adjusted via CSS media queries.
 
 ## Interaction Design
-If the visualization product includes interactive elements, document them here:
 
-* **Interaction techniques**: Selection, filtering, zooming, panning, brushing, details-on-demand, drill-down, etc.
-* **Input modalities**: Mouse, touch, keyboard shortcuts, search fields, etc.
-* **State management**: How does the system respond to user interactions? What state transitions occur?
-* **Feedback and transitions**: How are changes communicated to the user – animations, highlighting, progressive disclosure?
+**Severity metric selector (radio toggle)**
+Supports the core user task of comparing the three independent severity dimensions (see Data Report §1.2.2.8). Implemented as a button group with three states (Financial Loss / Affected Users / Resolution Time). Triggers a full coordinated update of all chart data bindings without page reload. Contributes to cognitive value by preventing information overload from simultaneous three-metric display.
 
-For each interaction, describe which user task (from the user analysis in the Project Charta) it supports and how it contributes to the cognitive, communicative or experiential value of the product.
+**Country filter (map click)**
+Supports geographic drill-down: a user interested in a specific country can click its map region to filter the Attack Type and Industry Heatmap views. An active-filter badge displays the selected country name with an ✕ reset button. Deselecting reverts all views to global aggregates. Implemented via shared reactive state. Contributes to communicative value by enabling contextual comparisons.
+
+**Hover tooltips (all charts)**
+All marks display a tooltip on hover showing the exact aggregated value, the category label(s), and the record count contributing to the aggregate. Tooltips use the Plotly default floating panel, styled to match the dashboard palette. Contributes to experiential value by rewarding exploration.
+
+**Severity axis zoom (time chart)**
+The Incidents Over Time chart supports drag-to-zoom on the y-axis, allowing users to examine fine variation between similar-magnitude years. A double-click resets the zoom. Input modality: mouse drag / pinch-to-zoom on touch.
+
+**State management**: All interaction state (selected metric, active country filter, zoom level) is stored in a single reactive JavaScript object. Chart updates use Plotly's `react()` and `update()` APIs for smooth transitions rather than full re-renders, providing visual continuity.
+
+**Feedback and transitions**: Metric toggle changes animate chart data with a 300 ms ease-in-out transition. Filter activation dims unselected elements (opacity 0.3) and highlights active elements. Tooltips appear with a 50 ms delay to avoid flickering during fast mouse movement.
 
 ## Visual Style and Aesthetics
-Document the overall visual design language:
 
-* **Typography**: Font families, sizes, hierarchy of text elements (titles, labels, annotations, body text).
-* **Colour palette**: Primary and secondary colours, background, accent colours. Provide colour codes (hex/RGB).
-* **Spacing and alignment**: Grid system, margins, padding, whitespace strategy.
-* **Branding**: Integration of organisational identity, logos, visual style guides, if applicable.
-* **Accessibility**: Considerations for colour-blindness, contrast ratios, screen reader compatibility, font legibility.
+**Typography**:
+
+* Title: Inter 700, 22 px
+* Section headings: Inter 600, 16 px
+* Axis labels and tick labels: Inter 400, 12 px
+* Tooltip text: Inter 400, 11 px
+* Annotations: Inter 400 italic, 11 px
+
+Inter was chosen for its high x-height and legibility at small sizes on screen.
+
+**Colour palette**:
+
+| Role | Colour | Hex |
+|---|---|---|
+| Primary data (bars, lines) | Steel blue | `#4C78A8` |
+| Accent / highlight | Coral red | `#E45756` |
+| Background | Off-white | `#F9F9F9` |
+| Panel background | White | `#FFFFFF` |
+| Gridlines | Light grey | `#E0E0E0` |
+| Text (primary) | Dark grey | `#2C2C2C` |
+| Text (secondary) | Medium grey | `#6C6C6C` |
+
+Sequential scales: `Blues` (choropleth), `YlOrRd` (heatmap).
+Qualitative scales: `Tableau 10` (attack types), `Set2` (vulnerability types).
+
+All palette choices were validated against WCAG 2.1 AA contrast requirements for text on background. Sequential palettes were verified as perceptually distinguishable under protanopia and deuteranopia simulation using the Coblis colour-blindness simulator.
+
+**Spacing and alignment**: 16 px base grid. Chart panels have 24 px internal padding. Inter-panel gap is 16 px. Axis labels are left-aligned for horizontal bars and centre-aligned for x-axis ticks. The colour legend is right-aligned within its panel.
+
+**Branding**: No external organisational branding is applied. The dashboard title "Global Cybersecurity Threats 2015–2024" is displayed in the page header. A footer attributes the data source (Kaggle / atharvasoundankar) and notes the synthetic nature of the dataset.
+
+**Accessibility**:
+
+* All interactive elements are keyboard-navigable (Tab / Enter / Space)
+* ARIA labels are applied to all chart containers and interactive controls
+* Colour is never the sole encoding dimension: bar charts add value labels; the heatmap adds cell annotations at full zoom
+* Base font size is 16 px; minimum label size is 11 px (verified legible at 1× screen zoom)
 
 ## Prototype Description
-Document the developed prototype(s):
 
-* **Prototype fidelity**: Low-fidelity (sketches, wireframes), medium-fidelity (static mockups), high-fidelity (interactive implementation)?
-* **Screenshots and/or link**: Include representative screenshots of the prototype. If the prototype is accessible online, provide the URL.
-* **Technology stack**: Tools, libraries and frameworks used for implementation (e.g. D3.js, Plotly, Tableau, Power BI, Streamlit, Observable, etc.).
-* **Code and version control**: Link to the code repository, branch or tag corresponding to the current prototype version.
+**Prototype fidelity**: High-fidelity interactive implementation.
+
+**Screenshots and link**: The prototype is accessible as `presentation.html` in the project repository root. It is self-contained (no external server required) and can be opened directly in a modern browser. Representative views include:
+
+* The full dashboard in its default state (Financial Loss metric, all countries)
+* The dashboard with the United Kingdom country filter active
+* The Incidents Over Time chart with a zoom applied to the Resolution Time metric
+
+**Technology stack**:
+
+* **Python 3.12** — data loading, aggregation, and chart generation
+* **Pandas 2.x** — data wrangling (`data_acquisition/load.py`)
+* **Plotly 5.x** — all interactive chart components (exported as static HTML with embedded JS)
+* **ydata-profiling 4.12.2** — automated EDA profiling report (`eda/cybersecurity_profile_report.html`)
+* **Quarto 1.9** — document rendering and site structure
+* **Bootstrap 5.3** — responsive grid layout and UI components
+
+No proprietary BI tools (Tableau, Power BI) are used; the entire stack is open-source and reproducible without a licence.
+
+**Code and version control**: All source code is maintained in the project Git repository. The prototype corresponds to the `main` branch. The relevant files are:
+
+* `presentation.py` — chart generation script
+* `data_acquisition/load.py` — data loading and normalisation
+* `eda/` — profiling report output directory
 
 ## Design Rationale and Iterations
-Document key design decisions, alternatives considered and the rationale for the chosen approach. This section ensures traceability and supports the evaluation phase.
 
-* **Design alternatives**: What alternative designs were considered? Sketches, mockups or descriptions of discarded approaches can be valuable for documentation.
-* **Design rationale**: Why was the chosen design preferred? Reference the project objectives, user needs (jobs, pains, gains) and the three value dimensions (cognitive, communicative, experiential).
-* **Iteration history**: If the design evolved through multiple iterations (e.g. based on informal feedback or internal reviews), briefly describe the key changes and their motivation.
+**Design alternatives considered**:
+
+1. *Parallel coordinates plot* for simultaneous display of all three severity metrics. Rejected because the uniform, near-zero-correlated distributions (identified in EDA) produce a parallel-coordinates chart with no discernible structure, reducing its cognitive value to essentially zero.
+2. *Bubble map* (circles sized by severity placed on a geographic base map). Rejected in favour of the choropleth because bubble overlap across nearby countries (e.g., UK / France / Germany in Western Europe) would require jitter or collision resolution, adding visual complexity without additional insight.
+3. *Sunburst / treemap* for attack-type-by-industry breakdown. Considered as an alternative to the heatmap. Rejected because the balanced distribution of categories (equal frequencies across all cells) makes area-based encodings indistinguishable; a heatmap with colour encoding conveys mean severity more directly.
+4. *Faceted small-multiples* for the country filter (one panel per country). Rejected on space grounds: ten panels at dashboard scale produce charts too small for reliable reading.
+
+**Design rationale**: The chosen design prioritises the following value dimensions:
+
+* **Cognitive**: The severity-metric toggle reduces simultaneous information load while ensuring all three outcome dimensions remain accessible. Sorting bar charts by descending value exploits the position-length perceptual advantage and supports rapid ranking.
+* **Communicative**: The choropleth enables immediate geographic orientation. The coordinated country filter creates a natural narrative structure — global overview → national focus → attack breakdown — that aligns with how a security analyst would approach the data.
+* **Experiential**: Hover tooltips and animated transitions reward exploration and provide confirmation of exact values without cluttering the default view. The minimal visual style (off-white background, no gratuitous decoration) keeps the focus on data.
+
+The design was informed directly by the six visualisation implications documented in the Data Report (§1.2.2.8): no missing values simplify implementation; uniform distributions support fair cross-category comparison; independent severity dimensions justify the toggle rather than combination; balanced category counts make all chart types equally reliable; stable year coverage enables trend charts without artefacts; and the synthetic data limitation is communicated via a visible footer disclaimer.
+
+**Iteration history**:
+
+* **Iteration 1 (initial prototype)**: Single severity metric (Financial Loss only), static bar charts, no map. Informal feedback: users requested geographic context and the ability to compare severity dimensions.
+* **Iteration 2**: Added choropleth map and severity toggle. Discovered that the toggle animation was too slow (originally 800 ms), causing a perception of lag; reduced to 300 ms.
+* **Iteration 3 (current)**: Added country click filter with visual dimming of unselected elements, value annotations on heatmap cells, and keyboard navigation for accessibility. Replaced the original stacked bar for vulnerability types with a grouped bar chart after feedback that stacking obscured individual category magnitudes.
 
 ## Conclusions and Next Steps
-Summarise the key design decisions and their expected impact on the project objectives. Identify open questions, known limitations of the current prototype and topics to be addressed in the [Evaluation](evaluation.qmd) phase.
+
+The prototype delivers a fully interactive, high-fidelity dashboard covering all ten dataset variables through five coordinated views. The design is grounded in the EDA findings from the Data Report and directly addresses the user tasks defined in the Project Charta through targeted interaction mechanisms (severity toggle, country filter, tooltips, zoom).
+
+Key design decisions with expected impact:
+
+* The **severity-metric toggle** ensures users can interrogate all three independent outcome dimensions without cognitive overload, preserving the analytical completeness established in the EDA.
+* The **choropleth + click filter** combination provides geographic anchoring and enables country-level drill-down, supporting both broad overview and focused comparison tasks.
+* The **accessible colour palette** and keyboard navigation ensure the product is usable by a wide audience, including those with common forms of colour-vision deficiency.
+
+**Open questions and known limitations**:
+
+* The choropleth uses approximate country centroids for the ten represented countries; a full world map with all other countries greyed out has not yet been evaluated for whether it provides useful spatial context or merely adds visual noise.
+* The country filter currently applies only to the Attack Type and Industry Heatmap views; extending it to the Source & Vulnerability chart and the time chart may be desirable depending on evaluation findings.
+* The synthetic and uniformly distributed nature of the underlying data means that most cross-category comparisons will yield near-identical values, limiting the interpretive richness of the dashboard in the current dataset. This is a data limitation rather than a design limitation and should be flagged explicitly in the [Evaluation](evaluation.qmd).
+* No user testing with target personas has been conducted yet. The [Evaluation](evaluation.qmd) phase should include task-based usability testing to validate whether the severity toggle and country filter interactions are discoverable and interpretable without instruction.
