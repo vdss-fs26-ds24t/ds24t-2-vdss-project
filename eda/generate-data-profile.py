@@ -11,9 +11,9 @@ Expected CSV columns (Global_Cybersecurity_Threats_2015-2024.csv format):
   Defense Mechanism Used, Incident Resolution Time (in Hours)
 
 Usage:
-  python generate-data-profile.py data.csv
-  python generate-data-profile.py data.csv -o my_dashboard.html
-  python generate-data-profile.py data.csv --delimiter ";"
+  python generate-data-profile.py  ../data/raw/Global_Cybersecurity_Threats_2015-2024.csv
+  python generate-data-profile.py  ../data/raw/Global_Cybersecurity_Threats_2015-2024.csv -o my_dashboard.html
+  python generate-data-profile.py  ../data/raw/Global_Cybersecurity_Threats_2015-2024.csv --delimiter ";"
 
 The output is a single self-contained HTML file. No server needed —
 open it directly in any browser.
