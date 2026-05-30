@@ -15,88 +15,88 @@
   --red:#ef4565;--amber:#f59e0b;--purple:#b48cf4;--orange:#fb923c;
   --t1:#d8eaf8;--t2:#93aec8;--t3:#5c7a96;
 }
-body{background:var(--bg);color:var(--t1);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.55;min-height:100vh;}
+body{background:var(--bg);color:var(--t1);font-family:'DM Sans',sans-serif;font-size:15px;line-height:1.65;min-height:100vh;}
 /* Header */
-.hdr{background:var(--surf);border-bottom:1px solid var(--bdr);padding:20px 32px;display:flex;align-items:flex-start;justify-content:space-between;gap:20px;}
-.hdr-badge{display:inline-flex;align-items:center;gap:7px;background:var(--acc-dim);border:1px solid var(--bdr);border-radius:20px;padding:4px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;}
+.hdr{background:var(--surf);border-bottom:1px solid var(--bdr);padding:36px 48px;display:flex;align-items:flex-start;justify-content:space-between;gap:32px;}
+.hdr-badge{display:inline-flex;align-items:center;gap:7px;background:var(--acc-dim);border:1px solid var(--bdr);border-radius:20px;padding:5px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:.1em;text-transform:uppercase;margin-bottom:16px;}
 .hdr-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--acc);animation:blink 2.4s infinite;}
 @keyframes blink{0%,100%{opacity:1;}55%{opacity:.25;}}
-.hdr h1{font-family:'Syne',sans-serif;font-size:25px;font-weight:800;color:var(--t1);letter-spacing:-.025em;line-height:1.2;}
+.hdr h1{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--t1);letter-spacing:-.025em;line-height:1.15;}
 .hdr h1 span{color:var(--acc);}
-.hdr-sub{color:var(--t2);font-size:13px;margin-top:6px;}
-.meta{display:grid;grid-template-columns:auto auto;gap:2px 18px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--t2);text-align:right;flex-shrink:0;}
+.hdr-sub{color:var(--t2);font-size:14px;margin-top:10px;}
+.meta{display:grid;grid-template-columns:auto auto;gap:6px 24px;font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--t2);text-align:right;flex-shrink:0;}
 .meta span{color:var(--acc);}
 /* Filter bar */
-.fbar{background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 32px;position:sticky;top:0;z-index:50;}
-.fbar-inner{display:flex;flex-direction:column;gap:10px;max-width:1640px;margin:0 auto;}
-.fbar-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+.fbar{background:var(--surf);border-bottom:1px solid var(--bdr);padding:20px 48px;position:sticky;top:0;z-index:50;}
+.fbar-inner{display:flex;flex-direction:column;gap:16px;max-width:1640px;margin:0 auto;}
+.fbar-row{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
 .f-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);white-space:nowrap;min-width:68px;}
-.pills{display:flex;flex-wrap:wrap;gap:6px;}
-.pill{cursor:pointer;border:1px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--t2);background:transparent;transition:background .12s,color .12s,border-color .12s;font-family:'DM Sans',sans-serif;user-select:none;}
+.pills{display:flex;flex-wrap:wrap;gap:7px;}
+.pill{cursor:pointer;border:1px solid var(--bdr);border-radius:20px;padding:6px 15px;font-size:12px;color:var(--t2);background:transparent;transition:background .12s,color .12s,border-color .12s;font-family:'DM Sans',sans-serif;user-select:none;}
 .pill:hover{border-color:var(--acc);color:var(--acc);}
 .pill.on{background:var(--acc);color:#002a1c;border-color:var(--acc);font-weight:500;}
-.yr-select{background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:12px;padding:5px 10px;cursor:pointer;outline:none;}
+.yr-select{background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 12px;cursor:pointer;outline:none;}
 .yr-select:focus{border-color:var(--acc);}
 .yr-select option{background:var(--surf2);}
 .f-divider{width:1px;height:20px;background:var(--bdr);flex-shrink:0;}
-.stat-badge{display:flex;align-items:center;gap:6px;background:var(--acc-dim);border:1px solid var(--bdr);border-radius:20px;padding:4px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);white-space:nowrap;}
-.reset-btn{cursor:pointer;border:1px solid var(--bdr);border-radius:20px;padding:4px 14px;font-size:11px;color:var(--t2);background:transparent;font-family:'DM Sans',sans-serif;margin-left:auto;transition:border-color .12s,color .12s;}
+.stat-badge{display:flex;align-items:center;gap:6px;background:var(--acc-dim);border:1px solid var(--bdr);border-radius:20px;padding:6px 15px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);white-space:nowrap;}
+.reset-btn{cursor:pointer;border:1px solid var(--bdr);border-radius:20px;padding:6px 15px;font-size:11px;color:var(--t2);background:transparent;font-family:'DM Sans',sans-serif;margin-left:auto;transition:border-color .12s,color .12s;}
 .reset-btn:hover{border-color:var(--acc);color:var(--acc);}
 /* Main */
-.main{padding:22px 32px;max-width:1640px;margin:0 auto;}
+.main{padding:44px 48px;max-width:1640px;margin:0 auto;}
 /* KPIs */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
-.kpi{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;padding:18px 20px;position:relative;overflow:hidden;}
-.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--acc),transparent);}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:24px;margin-bottom:48px;}
+.kpi{background:var(--surf);border:1px solid var(--bdr);border-radius:14px;padding:28px 32px;position:relative;overflow:hidden;}
+.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,var(--acc),transparent);}
 .kpi.red::after{background:linear-gradient(90deg,var(--red),transparent);}
 .kpi.amb::after{background:linear-gradient(90deg,var(--amber),transparent);}
 .kpi.pur::after{background:linear-gradient(90deg,var(--purple),transparent);}
-.kpi-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-bottom:8px;}
-.kpi-num{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--t1);line-height:1;}
+.kpi-label{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-bottom:14px;}
+.kpi-num{font-family:'Syne',sans-serif;font-size:38px;font-weight:800;color:var(--t1);line-height:1;}
 .kpi.red .kpi-num{color:var(--red);}.kpi.amb .kpi-num{color:var(--amber);}.kpi.pur .kpi-num{color:var(--purple);}
-.kpi-unit{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:400;color:var(--t2);margin-left:3px;}
-.kpi-sub{margin-top:7px;font-size:11.5px;color:var(--t2);}
+.kpi-unit{font-family:'DM Sans',sans-serif;font-size:14px;font-weight:400;color:var(--t2);margin-left:4px;}
+.kpi-sub{margin-top:14px;font-size:12px;color:var(--t2);}
 /* Section headers */
-.sh{display:flex;align-items:center;gap:10px;margin-bottom:12px;margin-top:20px;}
-.sh-t{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--t1);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;}
+.sh{display:flex;align-items:center;gap:14px;margin-bottom:20px;margin-top:56px;}
+.sh-t{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--t1);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;}
 .sh-l{flex:1;height:1px;background:var(--bdr);}
-.sh-tag{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);background:var(--acc-dim);padding:2px 9px;border-radius:10px;letter-spacing:.04em;white-space:nowrap;}
+.sh-tag{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);background:var(--acc-dim);padding:3px 11px;border-radius:10px;letter-spacing:.04em;white-space:nowrap;}
 /* Insight cards */
-.ins-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:4px;}
-.ins{background:var(--surf2);border:1px solid var(--bdr2);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;padding:12px 15px;}
+.ins-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px;margin-bottom:20px;}
+.ins{background:var(--surf2);border:1px solid var(--bdr2);border-left:3px solid var(--acc);border-radius:0 10px 10px 0;padding:22px 26px;}
 .ins.r{border-left-color:var(--red);}.ins.a{border-left-color:var(--amber);}.ins.p{border-left-color:var(--purple);}
-.ins-lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-bottom:5px;}
-.ins-txt{font-size:12px;color:var(--t1);line-height:1.55;}
+.ins-lbl{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-bottom:10px;}
+.ins-txt{font-size:13.5px;color:var(--t1);line-height:1.65;}
 .ins-txt b{color:var(--acc);font-weight:600;}.ins.r .ins-txt b{color:var(--red);}.ins.a .ins-txt b{color:var(--amber);}.ins.p .ins-txt b{color:var(--purple);}
 /* Chart cards */
-.cc{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;padding:18px;}
-.cc-t{font-family:'Syne',sans-serif;font-size:11.5px;font-weight:700;color:var(--t1);letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px;}
-.cc-s{font-size:11.5px;color:var(--t2);margin-bottom:12px;}
+.cc{background:var(--surf);border:1px solid var(--bdr);border-radius:14px;padding:32px;}
+.cc-t{font-family:'Syne',sans-serif;font-size:12.5px;font-weight:700;color:var(--t1);letter-spacing:.05em;text-transform:uppercase;margin-bottom:8px;}
+.cc-s{font-size:12px;color:var(--t2);margin-bottom:22px;}
 /* Grids */
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
-.g31{display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:12px;}
-.mb12{margin-bottom:12px;}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:24px;margin-bottom:24px;}
+.g31{display:grid;grid-template-columns:3fr 2fr;gap:24px;margin-bottom:24px;}
+.mb12{margin-bottom:24px;}
 /* Legend */
-.leg{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11px;color:var(--t2);margin-bottom:10px;}
-.li{display:flex;align-items:center;gap:6px;}
+.leg{display:flex;flex-wrap:wrap;gap:12px 20px;font-size:11.5px;color:var(--t2);margin-bottom:16px;}
+.li{display:flex;align-items:center;gap:7px;}
 .ld{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
 /* Heatmap */
 .hm-wrap{overflow-x:auto;}
-.hm{width:100%;border-collapse:separate;border-spacing:3px;font-family:'JetBrains Mono',monospace;font-size:11px;}
-.hm th{color:var(--t2);font-weight:500;padding:6px 8px;text-align:center;font-size:10px;letter-spacing:.04em;border-bottom:1px solid var(--bdr);}
+.hm{width:100%;border-collapse:separate;border-spacing:4px;font-family:'JetBrains Mono',monospace;font-size:11px;}
+.hm th{color:var(--t2);font-weight:500;padding:10px 14px;text-align:center;font-size:10px;letter-spacing:.04em;border-bottom:1px solid var(--bdr);}
 .hm th.rh{text-align:left;padding-left:0;}
-.hm td{padding:7px 8px;text-align:center;border-radius:5px;font-size:11px;font-weight:500;white-space:nowrap;}
+.hm td{padding:10px 12px;text-align:center;border-radius:5px;font-size:11px;font-weight:500;white-space:nowrap;}
 .hm td:first-child{text-align:left;color:var(--t2);background:transparent !important;padding-left:0;}
 .hm td.rtot{color:var(--acc);font-weight:600;background:transparent !important;}
 .hm .nd{color:var(--t3);background:var(--surf2) !important;font-style:italic;}
-.scale-bar{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:10.5px;color:var(--t2);font-family:'JetBrains Mono',monospace;}
+.scale-bar{display:flex;align-items:center;gap:10px;margin-top:22px;font-size:10.5px;color:var(--t2);font-family:'JetBrains Mono',monospace;}
 .scale-sw{display:flex;gap:2px;}
 .ssw{width:22px;height:12px;border-radius:2px;}
 /* Footer */
-.footer{background:var(--surf);border-top:1px solid var(--bdr);padding:13px 32px;display:flex;justify-content:space-between;align-items:center;margin-top:22px;}
+.footer{background:var(--surf);border-top:1px solid var(--bdr);padding:28px 48px;display:flex;justify-content:space-between;align-items:center;margin-top:56px;}
 .foot-l{font-size:10.5px;color:var(--t3);font-family:'JetBrains Mono',monospace;letter-spacing:.04em;}
-.foot-r{font-size:11.5px;color:var(--t2);}
+.foot-r{font-size:12px;color:var(--t2);}
 </style>
 </head>
 <body>
@@ -160,32 +160,32 @@ body{background:var(--bg);color:var(--t1);font-family:'DM Sans',sans-serif;font-
 
   <div class="sh"><div class="sh-t">Attack Trends &amp; Financial Impact</div><div class="sh-l"></div><div class="sh-tag" id="sh-yr">—</div></div>
   <div class="g2">
-    <div class="cc"><div class="cc-t">Incident volume by attack type</div><div class="cc-s">Annual incident count per vector</div><div class="leg" id="leg-trend"></div><div style="position:relative;height:260px;"><canvas id="cTrend"></canvas></div></div>
-    <div class="cc"><div class="cc-t">Financial loss by attack type</div><div class="cc-s">Cumulative losses (USD millions)</div><div style="position:relative;height:295px;"><canvas id="cAtkLoss"></canvas></div></div>
+    <div class="cc"><div class="cc-t">Incident volume by attack type</div><div class="cc-s">Annual incident count per vector</div><div class="leg" id="leg-trend"></div><div style="position:relative;height:320px;"><canvas id="cTrend"></canvas></div></div>
+    <div class="cc"><div class="cc-t">Financial loss by attack type</div><div class="cc-s">Cumulative losses (USD millions)</div><div style="position:relative;height:360px;"><canvas id="cAtkLoss"></canvas></div></div>
   </div>
 
   <div class="sh"><div class="sh-t">Year-on-Year Financial Losses</div><div class="sh-l"></div><div class="sh-tag">USD Millions</div></div>
-  <div class="cc mb12"><div class="cc-t">Total financial damage per year</div><div class="cc-s">Highest year highlighted in red — hover bars for exact values</div><div style="position:relative;height:185px;"><canvas id="cYrLoss"></canvas></div></div>
+  <div class="cc mb12"><div class="cc-t">Total financial damage per year</div><div class="cc-s">Highest year highlighted in red — hover bars for exact values</div><div style="position:relative;height:250px;"><canvas id="cYrLoss"></canvas></div></div>
 
   <div class="sh"><div class="sh-t">Geographic &amp; Sector Exposure</div><div class="sh-l"></div><div class="sh-tag" id="sh-geo">—</div></div>
   <div class="g31">
-    <div class="cc"><div class="cc-t">Financial loss by country</div><div class="cc-s">Cumulative losses per nation (USD millions)</div><div style="position:relative;height:310px;"><canvas id="cCtry"></canvas></div></div>
-    <div class="cc"><div class="cc-t">Loss by target sector</div><div class="cc-s">Share of cumulative financial exposure</div><div style="position:relative;height:310px;"><canvas id="cInd"></canvas></div></div>
+    <div class="cc"><div class="cc-t">Financial loss by country</div><div class="cc-s">Cumulative losses per nation (USD millions)</div><div style="position:relative;height:350px;"><canvas id="cCtry"></canvas></div></div>
+    <div class="cc"><div class="cc-t">Loss by target sector</div><div class="cc-s">Share of cumulative financial exposure</div><div style="position:relative;height:350px;"><canvas id="cInd"></canvas></div></div>
   </div>
 
   <div class="sh"><div class="sh-t">Threat Attribution &amp; Defense Performance</div><div class="sh-l"></div><div class="sh-tag">Source · Vulnerability · Response</div></div>
   <div class="g3">
-    <div class="cc"><div class="cc-t">Attack source attribution</div><div class="cc-s">Incident share by threat actor type</div><div style="position:relative;height:200px;"><canvas id="cSrc"></canvas></div><div class="leg" id="leg-src" style="margin-top:10px;"></div></div>
-    <div class="cc"><div class="cc-t">Security vulnerability types</div><div class="cc-s">Exploited weaknesses across incidents</div><div style="position:relative;height:200px;"><canvas id="cVln"></canvas></div><div class="leg" id="leg-vln" style="margin-top:10px;"></div></div>
-    <div class="cc"><div class="cc-t">Defense mechanism response</div><div class="cc-s">Avg. resolution time in hours — lower is better</div><div style="position:relative;height:200px;"><canvas id="cDef"></canvas></div><div style="font-size:10.5px;color:var(--t2);margin-top:6px;font-family:'JetBrains Mono',monospace;">↓ Lower = faster resolution</div></div>
+    <div class="cc"><div class="cc-t">Attack source attribution</div><div class="cc-s">Incident share by threat actor type</div><div style="position:relative;height:260px;"><canvas id="cSrc"></canvas></div><div class="leg" id="leg-src" style="margin-top:16px;"></div></div>
+    <div class="cc"><div class="cc-t">Security vulnerability types</div><div class="cc-s">Exploited weaknesses across incidents</div><div style="position:relative;height:260px;"><canvas id="cVln"></canvas></div><div class="leg" id="leg-vln" style="margin-top:16px;"></div></div>
+    <div class="cc"><div class="cc-t">Defense mechanism response</div><div class="cc-s">Avg. resolution time in hours — lower is better</div><div style="position:relative;height:260px;"><canvas id="cDef"></canvas></div><div style="font-size:11px;color:var(--t2);margin-top:12px;font-family:'JetBrains Mono',monospace;">↓ Lower = faster resolution</div></div>
   </div>
 
   <div class="sh"><div class="sh-t">Population Exposure by Country</div><div class="sh-l"></div><div class="sh-tag">Cumulative Users</div></div>
-  <div class="cc mb12"><div class="cc-t">Total affected users per nation</div><div class="cc-s">Cumulative user count across all filtered incidents</div><div style="position:relative;height:195px;"><canvas id="cUsers"></canvas></div></div>
+  <div class="cc mb12"><div class="cc-t">Total affected users per nation</div><div class="cc-s">Cumulative user count across all filtered incidents</div><div style="position:relative;height:260px;"><canvas id="cUsers"></canvas></div></div>
 
   <div class="sh"><div class="sh-t">Country × Attack Type Heatmap</div><div class="sh-l"></div><div class="sh-tag">Financial Loss $M</div></div>
   <div class="cc mb12">
-    <div class="cc-s" style="margin-bottom:14px;">Cumulative financial loss per country-attack combination — brighter cells = higher exposure. Grey = no data under current filters.</div>
+    <div class="cc-s">Cumulative financial loss per country-attack combination — brighter cells = higher exposure. Grey = no data under current filters.</div>
     <div class="hm-wrap"><table class="hm" id="hmTable"></table></div>
     <div class="scale-bar"><span>Lower</span><div class="scale-sw" id="scaleSw"></div><span>Higher</span></div>
   </div>
