@@ -2,7 +2,7 @@
 title: "Global Cybersecurity Threats"
 subtitle: "2015–2024 · Incident Patterns Across Countries, Industries & Attack Vectors"
 author: "Vithujan Shanmugaratnam · Francis Lehner · Brian Bernhauser"
-date: "ZHAW — VDSS Project 2026"
+date: "01.06.2026"
 format:
   revealjs:
     theme: dark
@@ -219,8 +219,6 @@ defense_data  = [df[df[COL["defense"]] == d][COL["loss"]].values
 atk_counts  = df[COL["attack"]].value_counts().sort_values()
 vuln_counts = df[COL["vuln"]].value_counts().sort_values()
 ```
-
----
 
 ## Agenda
 
