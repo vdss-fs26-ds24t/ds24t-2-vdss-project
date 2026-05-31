@@ -1,44 +1,110 @@
 # Meeting Notes
 
-Notes and decisions from the coaching sessions. You might also want to include notes from internal team meetings here, e.g. to document decisions that are relevant for the project and the development of the visualisation product. Sort in reverse chronological order (most recent first).
+This page documents relevant coaching sessions, internal team discussions, decisions and next steps during the development of the visualisation product. The notes are sorted in reverse chronological order.
 
-
-## 14.04.2022
-
-Topics:
-
-* topic 1
-* topic 2
-* ...
-
-Decisions:
-
-* decision 1
-* decision 2
-* ...
-
-Next steps:
-
-* this
-* and that
-* ...
-
-## 07.04.2022
+## 31.05.2026
 
 Topics:
 
-* topic 1
-* topic 2
-* ...
+* Final review of the project repository and current Quarto website structure.
+* Review of the final dashboard prototype generated from `eda/generate-data-profile.py`.
+* Discussion of where the final dashboard is stored and how it should be accessed.
+* Review of the remaining documentation tasks, especially `viz_design_report.qmd`, `evaluation.qmd`, `meeting_notes.qmd` and `README.md`.
 
 Decisions:
 
-* decision 1
-* decision 2
-* ...
+* The current dashboard design is considered suitable for the final submission.
+* Design changes should only be made in `eda/generate-data-profile.py`; the generated `dashboard.html` should not be edited manually.
+* The team will clarify whether the final dashboard should be linked directly in the Quarto website, for example as a link on the start page or as a separate navigation entry.
+* The remaining work focuses mainly on documentation, consistency checks and final polishing.
 
 Next steps:
 
-* this
-* and that
-* ...
+* Review `viz_design_report.qmd` and `evaluation.qmd`.
+* Update `meeting_notes.qmd` with relevant project decisions.
+* Update `README.md` with project structure and usage instructions.
+* Decide whether `dashboard.html` should be copied to `docs/eda/` and linked in the Quarto sidebar.
+
+## 16.05.2026
+
+Topics:
+
+* Review of the Quarto website setup and page structure.
+* Integration of the main project documents into the website navigation.
+* Preparation of the presentation page and alignment with the project reports.
+
+Decisions:
+
+* The project documentation is maintained as a Quarto website.
+* The sidebar navigation should include the main project pages: project overview, project charta, data report, visualisation design report, evaluation, meeting notes and presentation.
+* Generated output folders such as `build` and `_freeze` should not be edited manually.
+
+Next steps:
+
+* Continue reviewing the content of the main `.qmd` files.
+* Check whether all report pages are rendered correctly.
+* Ensure that the presentation page is consistent with the final project story.
+
+## 15.04.2026
+
+Topics:
+
+* Development of the first interactive visualisation prototype.
+* Discussion of dashboard layout, visual encoding and interaction options.
+* Selection of charts and dashboard components for the cybersecurity threat analysis.
+
+Decisions:
+
+* The visualisation product should be implemented as an interactive dashboard.
+* The dashboard should combine overview KPIs, country-level information, attack type analysis, industry analysis, financial loss views, heatmaps and an incident table.
+* Filters should allow users to explore the data by year, severity, attack type, country and attack source.
+* The dashboard should support the needs of both analytical users and decision-makers.
+
+Next steps:
+
+* Implement the dashboard prototype.
+* Align the visualisation choices with the design rationale in `viz_design_report.qmd`.
+* Test whether the dashboard supports the main project questions.
+
+## 02.04.2026
+
+Topics:
+
+* Review of the cybersecurity dataset and exploratory data analysis.
+* Discussion of relevant variables for the visualisation product.
+* Preparation of the data report and profiling output.
+
+Decisions:
+
+* The project uses the Global Cybersecurity Threats 2015–2024 dataset.
+* The main analysis focuses on countries, years, attack types, target industries, attack sources, vulnerabilities, defence mechanisms, financial losses, affected users and incident resolution time.
+* A profiling report is generated to document the structure and quality of the dataset.
+* The data report should explain the dataset, key variables, data quality and initial findings.
+
+Next steps:
+
+* Complete the data report.
+* Generate and link the interactive profiling report.
+* Use the EDA findings as basis for the visualisation design.
+
+## 20.03.2026
+
+Topics:
+
+* Definition of the project scope and initial research direction.
+* Discussion of the target users and value proposition.
+* Initial planning of the visualisation product and project documentation.
+
+Decisions:
+
+* The project focuses on global cybersecurity threats between 2015 and 2024.
+* The main goal is to make cybersecurity incidents easier to explore and compare across countries, industries, attack types and impact dimensions.
+* The visualisation product should support both strategic overview and detailed incident exploration.
+* The main target users are analysts and security decision-makers.
+
+Next steps:
+
+* Finalise the project charta.
+* Define the guiding research questions.
+* Start data acquisition and initial data exploration.
+* Prepare the structure of the Quarto project website.

@@ -1,151 +1,85 @@
-# Sample Project
-This is a template for a data visualization project using Python, uv for environment and package management and Quarto for documentation.
+# Cybersecurity Threat Analysis
 
-To adapt to your individual project change `sample` to the respective project name in the commands below
+This repository contains the final project for the course *Visualisation & Data Science Storytelling*. The project investigates patterns in global cybersecurity incidents between 2015 and 2024 and transforms the dataset into an interactive visualisation product and accompanying documentation.
 
-Adapt the `LICENSE` as required.
+The analysis is based on the Kaggle dataset *Global Cybersecurity Threats (2015–2024)*. The dataset contains 3,000 recorded incidents from ten countries and seven target industries. It includes variables such as year, country, target industry, attack type, attack source, exploited vulnerability, defence mechanism, financial loss, number of affected users and incident resolution time.
 
-> To do: Provide a brief description of the project here.
+The goal of the project is to support analysts, IT security managers and decision-makers in exploring and communicating cyber threat patterns more effectively. The visualisation focuses on descriptive and comparative insights rather than causal claims or forecasting.
 
 ## Live
-- **Interaktives Dashboard:** https://ds24t-2-vdss-cybersecurity-datastory.streamlit.app/
-- **Dokumentation:** https://vdss-fs26-ds24t.github.io/ds24t-2-vdss-project/ (Projekt Charta, Datenbericht, Visualisierungsdesign, Evaluation, Deployment)
 
-## Schnellstart
+* **Interactive dashboard:** https://ds24t-2-vdss-cybersecurity-datastory.streamlit.app/
+* **Project documentation:** https://vdss-fs26-ds24t.github.io/ds24t-2-vdss-project/
+
+The documentation website contains the project charta, data report, visualisation design report, evaluation, meeting notes and presentation.
+
+## Quick Start
+
+Install the project environment:
 
 ```bash
 uv sync
+```
+
+Load or prepare the data:
+
+```bash
 uv run data_acquisition/load.py
+```
+
+Generate the static HTML dashboard:
+
+```bash
+cd eda
 uv run python generate-data-profile.py ../data/raw/Global_Cybersecurity_Threats_2015-2024.csv
+cd ..
+```
+
+Run the deployed Streamlit application locally:
+
+```bash
 uv run streamlit run deployment/app.py
 ```
 
-## Project Organisation
-The visualization product development is organised according to the following process model:
+Preview the Quarto documentation website locally:
 
-![The visualization product development process](docs/pics/vizproductprocess.png)
-
-Code and configurations used in the different project phases are stored in the correspoding subfolders. Documentation artefacts in the form of a Quarto project are provided in `docs`.
-
-| Phase | Code folders | Documentation section | `docs`-File |
-|:-------|:---|:---|:---|
-| Project Understanding | -  | Project Charta | project_charta.qmd  |
-| Data Acquisition and Exploration | `eda` | Data Report | data_report.qmd  |
-| Visual Encoding and Design | `encoding-design`  | Visual Encoding and Design | viz_encoding_design.qmd  |
-| Evaluation | `evaluation`  | Evaluation | evaluation.qmd  |
-| Deployment | `deployment` | Deployment | deplyoment.qmd |
-
-
-> To do: Adjust accoding to your specific project needs - ensure consistency with readme, documentation, etc.
-
-> To do: add link to documentation website for convenience.
-
-
-See section `Quarto Setup and Usage` for instructions on how to build and serve the documentation website using Quarto.
-
-## Python Environment Setup and Management with uv
-Make sure to have uv installed: https://docs.astral.sh/uv/getting-started/installation/
-
-After cloning the repository,  create the python environment with all dependencies based on the `.python-version`, `pyproject.toml` and `uv.lock` files by running
 ```bash
-uv sync
+cd docs
+quarto preview
 ```
 
-To add new dependencies, use
+Render the Quarto documentation website:
+
 ```bash
-uv add <package>
-```
-which will add the package to `pyproject.toml` and update the `uv.lock` file. You can also specify a version, e.g. `uv add pandas==2.0.3`.
-
-Remove packages with
-```bash
-uv remove <package>
-```
-
-Commit changes to `pyproject.toml` and `uv.lock` files into version control.
-
-Run `uv sync` after pulling changes to update the local environment.
-
-Whenever the python environment is used, make sure to prefix every command that uses python with `uv run`, e.g.
-```bash
-uv run python script.py
-```
-
-You can also run
-```bash 
-source .venv/bin/activate
-```
-to activate the project Python environment in a terminal session in order to avoid having to prefix every command.
-
-## Runtime Configuration with Environment Variables
-The environment variables are specified in a .env-File, which is never commited into version control, as it may contain secrets. The repo just contains the file `.env.template` to demonstrate how environment variables are specified.
-
-You have to create a local copy of `.env.template` in the project root folder and the easiest is to just rename it to `.env`.
-
-The content of the .env-file is then read by the pypi-dependency: `python-dotenv`. Usage:
-```python
-import os
-from dotenv import load_dotenv
-```
-
-`load_dotenv` reads the .env-file and sets the environment variables:
-
-```python
-load_dotenv()
-```
-
-which can then be accessed (assuming the file contains a line `SAMPLE_VAR=<some value>`):
-
-```python
-os.environ['SAMPLE_VAR']
-```
-
-## Quarto Setup and Usage
-
-### Setup Quarto
-
-1. [Install Quarto](https://quarto.org/docs/get-started/)
-2. Optional: [quarto-extension for VS Code](https://marketplace.visualstudio.com/items?itemName=quarto.quarto)
-3. If working with svg files and pdf output you will need to install rsvg-convert:
-    * On macOS: `brew install librsvg`
-    * On Windows using chocolatey:
-      * [Install chocolatey](https://chocolatey.org/install#individual)
-      * [Install rsvg-convert](https://community.chocolatey.org/packages/rsvg-convert): `choco install rsvg-convert`
-
-Source `*.qmd` and configuration files are in the `docs` folder. The Quarto project configuration is in `docs/_quarto.yml`.
-
-With embedded python code chunks that perform computations, you need to make sure that the python environment is activated when rendering. This can be done by prefixing the render command with `uv run`, e.g.:
-```bash
+cd docs
 uv run quarto render
 ```
 
-### Working on the Documentation
+## Project Organisation
 
-1. Make changes to the `.qmd` source files in the `docs` folder
-2. Make sure the project Python environment is activated (see Python environment setup and management)
-3. Preview locally: `quarto preview` from the `docs` folder
-4. Build the documentation website: `uv run quarto render` from the `docs` folder. This renders to `docs/build`
-5. Check the website locally by opening `docs/build/index.html` in a browser
+The project is organised according to the main phases of the visualisation product development process.
 
-### Deployment of the Documentation to GitHub Pages
+![The visualization product development process](docs/pics/vizproductprocess.png)
 
-The documentation website is deployed to GitHub Pages via a GitHub Actions workflow (`.github/workflows/publish.yml`). Every push to `main` triggers the workflow, which renders the Quarto project and deploys the result.
+| Phase                             | Relevant folders / files                                      | Documentation                                  |
+| :-------------------------------- | :------------------------------------------------------------ | :--------------------------------------------- |
+| Project understanding             | `docs/project_charta.qmd`                                     | Project Charta                                 |
+| Data acquisition and exploration  | `data_acquisition/`, `data/`, `eda/`, `docs/data_report.qmd`  | Data Report                                    |
+| Visualisation design              | `eda/generate-data-profile.py`, `docs/viz_design_report.qmd`  | Visualisation Design Report                    |
+| Evaluation                        | `docs/evaluation.qmd`                                         | Evaluation                                     |
+| Deployment                        | `deployment/app.py`, `.github/workflows/`, `docs/_quarto.yml` | Documentation website and dashboard deployment |
+| Meetings and project coordination | `docs/meeting_notes.qmd`, `README.md`                         | Meeting Notes and repository overview          |
 
-The setting `execute: freeze: auto` in `_quarto.yml` ensures that Python computations are only executed locally. Results are cached in `docs/_freeze` and checked into the repository, so the GitHub Actions runner does not need Python — it uses the pre-computed results.
+## Important Files
 
-#### Initial Setup (once)
-
-1. In the GitHub repository settings, go to **Settings > Pages** and set the source to **GitHub Actions**
-2. Render locally so that `_freeze` contains cached computation results:
-   ```bash
-   cd docs && uv run quarto render
-   ```
-3. Push the changes to `main`
-
-The `_freeze` directory and the workflow file `.github/workflows/publish.yml` should already be tracked in the repository.
-
-#### Publishing Updates
-
-1. Build the website locally: `uv run quarto render` from the `docs` folder. This updates `docs/build` (gitignored) and `docs/_freeze` (checked in)
-2. Check the website locally by opening `docs/build/index.html`
-3. Commit and push all updated files (including `docs/_freeze`) to `main`. The GitHub Actions workflow will render and deploy the site automatically
+| File / folder                  | Purpose                                                                                                                                     |
+| :----------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------ |
+| `eda/generate-data-profile.py` | Generates the static interactive HTML dashboard from the cybersecurity dataset. Design changes to the static dashboard should be made here. |
+| `eda/dashboard.html`           | Generated static dashboard output. This file should not be edited manually.                                                                 |
+| `deployment/app.py`            | Streamlit deployment of the interactive dashboard.                                                                                          |
+| `docs/`                        | Quarto documentation website.                                                                                                               |
+| `docs/_quarto.yml`             | Quarto website configuration and sidebar navigation.                                                                                        |
+| `docs/data_report.qmd`         | Dataset description, data quality checks and exploratory analysis.                                                                          |
+| `docs/viz_design_report.qmd`   | Design rationale and explanation of the visualisation product.                                                                              |
+| `docs/evaluation.qmd`          | Evaluation of the dashboard against the project goals and user needs.                                                                       |
+| `docs/meeting_notes.qmd`       | Relevant coaching and internal team meeting notes.                                                                                          |
