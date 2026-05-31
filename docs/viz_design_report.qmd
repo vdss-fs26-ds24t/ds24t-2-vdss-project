@@ -310,4 +310,4 @@ Key design decisions with expected impact:
 * The CVSS computation is a simplified approximation and does not comply with NIST CVSS v3.1 scoring. The score should be presented as a composite indicator rather than a standard CVSS base score.
 * All external libraries (Bootstrap, Chart.js, Leaflet, DataTables, Font Awesome, Google Fonts) are loaded from CDNs; the dashboard requires an internet connection to render correctly. An `--offline` flag inlining all dependencies would support air-gapped environments.
 * The geographic component shows only the ten countries present in the source dataset. Adding a country not in `COUNTRY_COORDS` produces a marker at `[0, 0]` (Gulf of Guinea) — a defensive default that should be flagged in the log rather than silently applied.
-* No formal user testing with target personas has been conducted. The [Evaluation](evaluation.qmd) phase should include task-based usability testing to validate filter discoverability, the analytical utility of the dual heatmaps, and the legibility of the dark theme in high-ambient-light environments.
+
