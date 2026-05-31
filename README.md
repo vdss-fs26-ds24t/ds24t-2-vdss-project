@@ -7,6 +7,10 @@ Adapt the `LICENSE` as required.
 
 > To do: Provide a brief description of the project here.
 
+## Live
+- **Interaktives Dashboard:** https://ds24t-2-vdss-cybersecurity-datastory.streamlit.app/
+- **Dokumentation:** https://vdss-fs26-ds24t.github.io/ds24t-2-vdss-project/ (Projekt Charta, Datenbericht, Visualisierungsdesign, Evaluation, Deployment)
+
 ## Schnellstart
 
 ```bash
