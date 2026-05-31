@@ -6,878 +6,1510 @@ threat intelligence dashboard from a CSV file.
 
 Expected CSV columns (Global_Cybersecurity_Threats_2015-2024.csv format):
   Country, Year, Attack Type, Target Industry,
-  Financial Loss (in Million $), Number of Affected Users,
+  Financial Loss (in Million $)
   Attack Source, Security Vulnerability Type,
   Defense Mechanism Used, Incident Resolution Time (in Hours)
 
 Usage:
   python generate-data-profile.py  ../data/raw/Global_Cybersecurity_Threats_2015-2024.csv
-  python generate-data-profile.py  ../data/raw/Global_Cybersecurity_Threats_2015-2024.csv -o my_dashboard.html
-  python generate-data-profile.py  ../data/raw/Global_Cybersecurity_Threats_2015-2024.csv --delimiter ";"
 
 The output is a single self-contained HTML file. No server needed —
 open it directly in any browser.
 """
 
-import pandas as pd
+import csv
 import json
-import argparse
 import os
+import random
 import sys
+from collections import defaultdict
+from datetime import datetime, timedelta
 
+# ─── Configuration ──────────────────────────────────────────────────────────
+CSV_FILENAME    = "Global_Cybersecurity_Threats_2015-2024.csv"
+OUTPUT_FILENAME = "dashboard.html"
+RANDOM_SEED     = 42   # reproducible synthetic fields
 
-# ─────────────────────────────────────────────────────────────
-# CLI
-# ─────────────────────────────────────────────────────────────
-def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Generate an interactive cybersecurity threat dashboard from a CSV file.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=__doc__,
-    )
-    parser.add_argument("csv", help="Path to the input CSV file")
-    parser.add_argument(
-        "-o", "--output",
-        default="cybersecurity_dashboard.html",
-        help="Output HTML file path (default: cybersecurity_dashboard.html)",
-    )
-    parser.add_argument(
-        "-d", "--delimiter",
-        default=",",
-        help='CSV delimiter (default: ",")',
-    )
-    return parser.parse_args()
-
-
-# ─────────────────────────────────────────────────────────────
-# DATA ENCODING
-# Each row is stored as a compact integer-indexed array:
-#   [countryIdx, yearOffset, attackIdx, industryIdx,
-#    loss(float), users(int), sourceIdx, vulnIdx,
-#    defenseIdx, restime(int)]
-# Year offset is relative to the minimum year in the dataset.
-# ─────────────────────────────────────────────────────────────
-COLUMN_MAP = {
-    "country":   "Country",
-    "year":      "Year",
-    "attack":    "Attack Type",
-    "industry":  "Target Industry",
-    "loss":      "Financial Loss (in Million $)",
-    "users":     "Number of Affected Users",
-    "source":    "Attack Source",
-    "vuln":      "Security Vulnerability Type",
-    "defense":   "Defense Mechanism Used",
-    "restime":   "Incident Resolution Time (in Hours)",
+COUNTRY_FLAGS = {
+    "Australia": "🇦🇺", "Brazil": "🇧🇷", "China": "🇨🇳",
+    "France":    "🇫🇷", "Germany":"🇩🇪", "India": "🇮🇳",
+    "Japan":     "🇯🇵", "Russia": "🇷🇺", "UK":    "🇬🇧", "USA": "🇺🇸",
+}
+COUNTRY_COORDS = {
+    "Australia": [-25.27, 133.78], "Brazil":  [-14.24, -51.93],
+    "China":     [ 35.86, 104.20], "France":  [ 46.23,   2.21],
+    "Germany":   [ 51.17,  10.45], "India":   [ 20.59,  78.96],
+    "Japan":     [ 36.20, 138.25], "Russia":  [ 61.52, 105.32],
+    "UK":        [ 55.38,  -3.44], "USA":     [ 37.09, -95.71],
 }
 
-def encode_data(df):
-    col = COLUMN_MAP
-    countries  = sorted(df[col["country"]].unique().tolist())
-    attacks    = sorted(df[col["attack"]].unique().tolist())
-    industries = sorted(df[col["industry"]].unique().tolist())
-    sources    = sorted(df[col["source"]].unique().tolist())
-    vulns      = sorted(df[col["vuln"]].unique().tolist())
-    defenses   = sorted(df[col["defense"]].unique().tolist())
-    years      = sorted(df[col["year"]].unique().tolist())
-    min_year   = int(years[0])
 
-    rows = []
-    for _, r in df.iterrows():
-        rows.append([
-            countries.index(r[col["country"]]),
-            int(r[col["year"]]) - min_year,
-            attacks.index(r[col["attack"]]),
-            industries.index(r[col["industry"]]),
-            round(float(r[col["loss"]]), 2),
-            int(r[col["users"]]),
-            sources.index(r[col["source"]]),
-            vulns.index(r[col["vuln"]]),
-            defenses.index(r[col["defense"]]),
-            int(r[col["restime"]]),
-        ])
+# ─── Data-processing helpers ─────────────────────────────────────────────────
 
-    return {
-        "countries":  countries,
-        "attacks":    attacks,
-        "industries": industries,
-        "sources":    sources,
-        "vulns":      vulns,
-        "defenses":   defenses,
-        "years":      years,
-        "minYear":    min_year,
-        "rows":       rows,
-    }
+def quartiles(vals):
+    """Return (Q25, Q50, Q75) of a numeric list."""
+    s = sorted(vals)
+    n = len(s)
+    if n == 0:
+        return 0.0, 0.0, 0.0
+    return s[n // 4], s[n // 2], s[3 * n // 4]
 
 
-# ─────────────────────────────────────────────────────────────
-# HTML TEMPLATE
-# Uses __PLACEHOLDER__ tokens instead of f-strings to avoid
-# conflicts with the many JavaScript curly braces in the template.
-# ─────────────────────────────────────────────────────────────
-HTML_TEMPLATE = r"""<!DOCTYPE html>
+def severity_from_loss(loss, q25, q50, q75):
+    """Map financial-loss value to a severity label using quartile thresholds."""
+    if loss >= q75:
+        return "Critical"
+    if loss >= q50:
+        return "High"
+    if loss >= q25:
+        return "Medium"
+    return "Low"
+
+
+def compute_cvss(loss, users, max_loss, max_users):
+    """Derive a CVSS-style score 0–10 from financial impact + user scope."""
+    ls = (loss  / max_loss  * 6.0) if max_loss  else 0.0
+    us = (users / max_users * 4.0) if max_users else 0.0
+    return round(min(10.0, ls + us), 1)
+
+
+def fake_timestamp(year_str, seq):
+    """Generate a plausible datetime string spread across the given year."""
+    y = int(year_str) if year_str.isdigit() else 2020
+    doy = (seq * 17 + seq // 6) % 365
+    dt  = datetime(y, 1, 1) + timedelta(
+        days=doy, hours=(seq * 7) % 24, minutes=(seq * 13) % 60)
+    return dt.strftime("%Y-%m-%d %H:%M")
+
+
+def status_from_hours(hours):
+    """Classify incident status by resolution time."""
+    if hours > 72:
+        return "Resolved"
+    if hours > 24:
+        return "Contained"
+    return "Active"
+
+
+def dark_web_count(sev, seed):
+    """Generate synthetic dark-web mention count weighted by severity."""
+    random.seed(seed)
+    ranges = {"Critical": (50, 200), "High": (10, 60),
+              "Medium": (2, 15), "Low": (0, 5)}
+    lo, hi = ranges.get(sev, (0, 3))
+    return random.randint(lo, hi)
+
+
+# ─── CSV Reader ──────────────────────────────────────────────────────────────
+
+def read_csv(path):
+    """Read, validate, sanitize and enrich the CSV.  Returns a list of dicts."""
+    if not os.path.exists(path):
+        print(f"[ERROR] CSV file not found: '{path}'")
+        sys.exit(1)
+
+    raw = []
+    with open(path, encoding="utf-8-sig") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames:
+            print("[ERROR] CSV file is empty or has no header row.")
+            sys.exit(1)
+
+        for i, row in enumerate(reader):
+            def sf(k, default="Unknown"):
+                v = (row.get(k) or "").strip()
+                return v if v else default
+            def nf(k):
+                try: return float(row.get(k) or 0)
+                except (ValueError, TypeError): return 0.0
+            def ni(k):
+                try: return int(float(row.get(k) or 0))
+                except (ValueError, TypeError): return 0
+
+            raw.append({
+                "idx":      i,
+                "country":  sf("Country"),
+                "year":     sf("Year", "2020"),
+                "type":     sf("Attack Type"),
+                "industry": sf("Target Industry"),
+                "loss":     nf("Financial Loss (in Million $)"),
+                "users":    ni("Number of Affected Users"),
+                "source":   sf("Attack Source"),
+                "vuln":     sf("Security Vulnerability Type"),
+                "defense":  sf("Defense Mechanism Used"),
+                "res":      ni("Incident Resolution Time (in Hours)"),
+            })
+
+    if not raw:
+        print("[ERROR] No valid rows found in CSV.")
+        sys.exit(1)
+
+    print(f"[INFO] Loaded {len(raw)} rows from '{path}'")
+
+    losses    = [r["loss"]  for r in raw]
+    users_all = [r["users"] for r in raw]
+    q25, q50, q75 = quartiles(losses)
+    max_loss  = max(losses)    if losses    else 1.0
+    max_users = max(users_all) if users_all else 1
+
+    year_seq = defaultdict(int)
+    out = []
+    random.seed(RANDOM_SEED)
+
+    for r in raw:
+        seq = year_seq[r["year"]]
+        year_seq[r["year"]] += 1
+
+        sev  = severity_from_loss(r["loss"], q25, q50, q75)
+        coords = COUNTRY_COORDS.get(r["country"], [0.0, 0.0])
+
+        out.append({
+            "ts":       fake_timestamp(r["year"], seq),
+            "year":     r["year"],
+            "country":  r["country"],
+            "flag":     COUNTRY_FLAGS.get(r["country"], "🌐"),
+            "lat":      coords[0],
+            "lng":      coords[1],
+            "type":     r["type"],
+            "industry": r["industry"],
+            "loss":     round(r["loss"], 2),
+            "users":    r["users"],
+            "source":   r["source"],
+            "vuln":     r["vuln"],
+            "defense":  r["defense"],
+            "res":      r["res"],
+            "severity": sev,
+            "cvss":     compute_cvss(r["loss"], r["users"], max_loss, max_users),
+            "status":   status_from_hours(r["res"]),
+            "dw":       dark_web_count(sev, r["idx"] * 31 + 7),
+        })
+
+    return out
+
+
+# ─── HTML Template ───────────────────────────────────────────────────────────
+TEMPLATE = r"""<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Global Cybersecurity Threat Intelligence · Interactive Dashboard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Cyber Threat Intelligence Dashboard</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css">
+  <link rel="stylesheet" href="https://cdn.datatables.net/buttons/2.4.2/css/buttons.bootstrap5.min.css">
+
 <style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-:root{
-  --bg:#05101e;--surf:#0c1828;--surf2:#132034;--surf3:#1a2a44;
-  --bdr:rgba(0,210,155,0.16);--bdr2:rgba(0,210,155,0.08);
-  --acc:#00d4a0;--acc-dim:rgba(0,212,160,0.12);
-  --red:#ef4565;--amber:#f59e0b;--purple:#b48cf4;--orange:#fb923c;
-  --t1:#d8eaf8;--t2:#93aec8;--t3:#5c7a96;
+/* ══════════════════════════════════════════════════════
+   THEME TOKENS
+   ══════════════════════════════════════════════════════ */
+:root {
+  --bg0:      #05080f;
+  --bg1:      #090e1c;
+  --bg2:      #0c1425;
+  --bgcard:   #0f1a2e;
+  --cyan:     #00f5ff;
+  --cyandim:  #00c5cc;
+  --cyanglow: rgba(0,245,255,.14);
+  --green:    #39ff14;
+  --magenta:  #d958f7;
+  --crit:     #ff2d55;
+  --high:     #ff6b35;
+  --medium:   #ffd60a;
+  --low:      #30d158;
+  --amber:    #f59e0b;
+  --txt1:     #dde6f5;
+  --txt2:     #7f8faa;
+  --txt3:     #3d4f68;
+  --border:   rgba(0,245,255,.12);
+  --borderbr: rgba(0,245,255,.38);
+  --fdisplay: 'Orbitron',  monospace;
+  --fmono:    'Share Tech Mono', monospace;
+  --fui:      'Rajdhani',  sans-serif;
+  --r:        8px;
+  --rl:       12px;
+  --shadowc:  0 0 22px rgba(0,245,255,.22);
+  --shadowcard: 0 6px 28px rgba(0,0,0,.55);
 }
-body{background:var(--bg);color:var(--t1);font-family:'DM Sans',sans-serif;font-size:14px;line-height:1.55;min-height:100vh;}
-/* Header */
-.hdr{background:var(--surf);border-bottom:1px solid var(--bdr);padding:20px 32px;display:flex;align-items:flex-start;justify-content:space-between;gap:20px;}
-.hdr-badge{display:inline-flex;align-items:center;gap:7px;background:var(--acc-dim);border:1px solid var(--bdr);border-radius:20px;padding:4px 12px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px;}
-.hdr-badge::before{content:'';width:6px;height:6px;border-radius:50%;background:var(--acc);animation:blink 2.4s infinite;}
-@keyframes blink{0%,100%{opacity:1;}55%{opacity:.25;}}
-.hdr h1{font-family:'Syne',sans-serif;font-size:25px;font-weight:800;color:var(--t1);letter-spacing:-.025em;line-height:1.2;}
-.hdr h1 span{color:var(--acc);}
-.hdr-sub{color:var(--t2);font-size:13px;margin-top:6px;}
-.meta{display:grid;grid-template-columns:auto auto;gap:2px 18px;font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--t2);text-align:right;flex-shrink:0;}
-.meta span{color:var(--acc);}
-/* Filter bar */
-.fbar{background:var(--surf);border-bottom:1px solid var(--bdr);padding:14px 32px;position:sticky;top:0;z-index:50;}
-.fbar-inner{display:flex;flex-direction:column;gap:10px;max-width:1640px;margin:0 auto;}
-.fbar-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
-.f-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--t2);white-space:nowrap;min-width:68px;}
-.pills{display:flex;flex-wrap:wrap;gap:6px;}
-.pill{cursor:pointer;border:1px solid var(--bdr);border-radius:20px;padding:4px 12px;font-size:12px;color:var(--t2);background:transparent;transition:background .12s,color .12s,border-color .12s;font-family:'DM Sans',sans-serif;user-select:none;}
-.pill:hover{border-color:var(--acc);color:var(--acc);}
-.pill.on{background:var(--acc);color:#002a1c;border-color:var(--acc);font-weight:500;}
-.yr-select{background:var(--surf2);border:1px solid var(--bdr);border-radius:8px;color:var(--t1);font-family:'JetBrains Mono',monospace;font-size:12px;padding:5px 10px;cursor:pointer;outline:none;}
-.yr-select:focus{border-color:var(--acc);}
-.yr-select option{background:var(--surf2);}
-.f-divider{width:1px;height:20px;background:var(--bdr);flex-shrink:0;}
-.stat-badge{display:flex;align-items:center;gap:6px;background:var(--acc-dim);border:1px solid var(--bdr);border-radius:20px;padding:4px 14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);white-space:nowrap;}
-.reset-btn{cursor:pointer;border:1px solid var(--bdr);border-radius:20px;padding:4px 14px;font-size:11px;color:var(--t2);background:transparent;font-family:'DM Sans',sans-serif;margin-left:auto;transition:border-color .12s,color .12s;}
-.reset-btn:hover{border-color:var(--acc);color:var(--acc);}
-/* Main */
-.main{padding:22px 32px;max-width:1640px;margin:0 auto;}
-/* KPIs */
-.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
-.kpi{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;padding:18px 20px;position:relative;overflow:hidden;}
-.kpi::after{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--acc),transparent);}
-.kpi.red::after{background:linear-gradient(90deg,var(--red),transparent);}
-.kpi.amb::after{background:linear-gradient(90deg,var(--amber),transparent);}
-.kpi.pur::after{background:linear-gradient(90deg,var(--purple),transparent);}
-.kpi-label{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-bottom:8px;}
-.kpi-num{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:var(--t1);line-height:1;}
-.kpi.red .kpi-num{color:var(--red);}.kpi.amb .kpi-num{color:var(--amber);}.kpi.pur .kpi-num{color:var(--purple);}
-.kpi-unit{font-family:'DM Sans',sans-serif;font-size:13px;font-weight:400;color:var(--t2);margin-left:3px;}
-.kpi-sub{margin-top:7px;font-size:11.5px;color:var(--t2);}
-/* Section headers */
-.sh{display:flex;align-items:center;gap:10px;margin-bottom:12px;margin-top:20px;}
-.sh-t{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--t1);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;}
-.sh-l{flex:1;height:1px;background:var(--bdr);}
-.sh-tag{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--acc);background:var(--acc-dim);padding:2px 9px;border-radius:10px;letter-spacing:.04em;white-space:nowrap;}
-/* Insight cards */
-.ins-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:4px;}
-.ins{background:var(--surf2);border:1px solid var(--bdr2);border-left:3px solid var(--acc);border-radius:0 8px 8px 0;padding:12px 15px;}
-.ins.r{border-left-color:var(--red);}.ins.a{border-left-color:var(--amber);}.ins.p{border-left-color:var(--purple);}
-.ins-lbl{font-size:9.5px;text-transform:uppercase;letter-spacing:.12em;color:var(--t2);font-family:'JetBrains Mono',monospace;margin-bottom:5px;}
-.ins-txt{font-size:12px;color:var(--t1);line-height:1.55;}
-.ins-txt b{color:var(--acc);font-weight:600;}.ins.r .ins-txt b{color:var(--red);}.ins.a .ins-txt b{color:var(--amber);}.ins.p .ins-txt b{color:var(--purple);}
-/* Chart cards */
-.cc{background:var(--surf);border:1px solid var(--bdr);border-radius:12px;padding:18px;}
-.cc-t{font-family:'Syne',sans-serif;font-size:11.5px;font-weight:700;color:var(--t1);letter-spacing:.05em;text-transform:uppercase;margin-bottom:3px;}
-.cc-s{font-size:11.5px;color:var(--t2);margin-bottom:12px;}
-/* Grids */
-.g2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;}
-.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}
-.g31{display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:12px;}
-.mb12{margin-bottom:12px;}
-/* Legend */
-.leg{display:flex;flex-wrap:wrap;gap:8px 14px;font-size:11px;color:var(--t2);margin-bottom:10px;}
-.li{display:flex;align-items:center;gap:6px;}
-.ld{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
-/* Heatmap */
-.hm-wrap{overflow-x:auto;}
-.hm{width:100%;border-collapse:separate;border-spacing:3px;font-family:'JetBrains Mono',monospace;font-size:11px;}
-.hm th{color:var(--t2);font-weight:500;padding:6px 8px;text-align:center;font-size:10px;letter-spacing:.04em;border-bottom:1px solid var(--bdr);}
-.hm th.rh{text-align:left;padding-left:0;}
-.hm td{padding:7px 8px;text-align:center;border-radius:5px;font-size:11px;font-weight:500;white-space:nowrap;}
-.hm td:first-child{text-align:left;color:var(--t2);background:transparent !important;padding-left:0;}
-.hm td.rtot{color:var(--acc);font-weight:600;background:transparent !important;}
-.hm .nd{color:var(--t3);background:var(--surf2) !important;font-style:italic;}
-.scale-bar{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:10.5px;color:var(--t2);font-family:'JetBrains Mono',monospace;}
-.scale-sw{display:flex;gap:2px;}
-.ssw{width:22px;height:12px;border-radius:2px;}
-/* Footer */
-.footer{background:var(--surf);border-top:1px solid var(--bdr);padding:13px 32px;display:flex;justify-content:space-between;align-items:center;margin-top:22px;}
-.foot-l{font-size:10.5px;color:var(--t3);font-family:'JetBrains Mono',monospace;letter-spacing:.04em;}
-.foot-r{font-size:11.5px;color:var(--t2);}
+
+/* ══════════════════════════════════════════════════════
+   BASE
+   ══════════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background-color: var(--bg0);
+  background-image:
+    linear-gradient(rgba(0,245,255,.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,245,255,.025) 1px, transparent 1px);
+  background-size: 44px 44px;
+  color: var(--txt1);
+  font-family: var(--fui);
+  font-size: 14px;
+  line-height: 1.55;
+  overflow-x: hidden;
+}
+
+/* ══════════════════════════════════════════════════════
+   HEADER
+   ══════════════════════════════════════════════════════ */
+.dash-header {
+  background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+  border-bottom: 1px solid var(--borderbr);
+  box-shadow: 0 0 50px rgba(0,245,255,.09);
+  padding: 14px 26px;
+  position: sticky; top: 0; z-index: 1100;
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+}
+.h-brand { display: flex; align-items: center; gap: 14px; }
+.h-icon { font-size: 26px; color: var(--cyan); filter: drop-shadow(0 0 8px var(--cyan)); }
+.h-title { font-family: var(--fdisplay); font-size: 17px; font-weight: 700;
+  color: var(--cyan); text-shadow: 0 0 18px rgba(0,245,255,.45);
+  letter-spacing: 2px; text-transform: uppercase; line-height: 1.2; }
+.h-sub { font-family: var(--fdisplay); font-size: 9px; color: var(--txt3);
+  letter-spacing: 3px; display: block; text-transform: uppercase; }
+.h-right { display: flex; align-items: center; gap: 20px; }
+.live-ind { display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--fmono); font-size: 11px; color: var(--txt3); }
+.live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--txt3); }
+.live-ind.on .live-dot { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.1s infinite; }
+.live-ind.on { color: var(--green); }
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.55;transform:scale(1.25)} }
+.clock { font-family: var(--fmono); font-size: 22px; color: var(--green);
+  text-shadow: 0 0 10px rgba(57,255,20,.45); letter-spacing: 2px; }
+.loadts { font-family: var(--fmono); font-size: 10px; color: var(--txt3); text-align: right; }
+.loadts span { color: var(--cyandim); }
+
+/* ══════════════════════════════════════════════════════
+   MAIN LAYOUT & FILTERS
+   ══════════════════════════════════════════════════════ */
+.dash-main { padding: 18px 24px; max-width: 1920px; margin: 0 auto; }
+
+.fbar {
+  background: var(--bgcard); border: 1px solid var(--border); border-radius: var(--rl);
+  padding: 14px 18px; margin-bottom: 18px;
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end;
+}
+.fbarlabel { font-family: var(--fmono); font-size: 11px; color: var(--cyan);
+  text-transform: uppercase; letter-spacing: 2px; white-space: nowrap;
+  align-self: center; border-right: 1px solid var(--border); padding-right: 14px; }
+.fg { display: flex; flex-direction: column; gap: 3px; min-width: 130px; }
+.fg label { font-size: 9px; color: var(--txt3); font-family: var(--fmono);
+  text-transform: uppercase; letter-spacing: 1px; }
+.fsel {
+  background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r);
+  color: var(--txt1); font-family: var(--fui); font-size: 13px; padding: 6px 10px;
+  transition: border-color .18s, box-shadow .18s; width: 100%;
+}
+.fsel:focus { border-color: var(--cyan); box-shadow: 0 0 8px var(--cyanglow); outline: none; }
+.fsel option { background: var(--bg2); }
+
+/* ── Multi-select dropdown ── */
+.msel { position: relative; min-width: 130px; }
+.msel-btn {
+  background: var(--bg1); border: 1px solid var(--border); border-radius: var(--r);
+  color: var(--txt1); font-family: var(--fui); font-size: 13px; padding: 6px 10px;
+  transition: border-color .18s, box-shadow .18s; width: 100%;
+  text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; justify-content: space-between; gap: 6px;
+}
+.msel-btn::after { content: '▾'; font-size: 10px; color: var(--txt3); flex-shrink: 0; transition: transform .18s; }
+.msel-btn.open { border-color: var(--cyan); box-shadow: 0 0 8px var(--cyanglow); outline: none; }
+.msel-btn.open::after { transform: rotate(180deg); }
+.msel-panel {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 2000;
+  background: var(--bg2); border: 1px solid var(--borderbr); border-radius: var(--r);
+  min-width: 100%; max-height: 220px; overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,.65);
+}
+.msel-panel.open { display: block; }
+.msel-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 12px; cursor: pointer; font-family: var(--fui); font-size: 13px;
+  color: var(--txt1); transition: background .12s; user-select: none;
+}
+.msel-item:hover { background: var(--cyanglow); }
+.msel-item input[type="checkbox"] { accent-color: var(--cyan); width: 13px; height: 13px; cursor: pointer; flex-shrink: 0; }
+.msel-count { display: inline-block; background: var(--cyan); color: #000;
+  font-size: 10px; font-family: var(--fmono); font-weight: 700;
+  padding: 1px 5px; border-radius: 3px; flex-shrink: 0; }
+
+.factions { display: flex; gap: 8px; }
+.btn-cyber {
+  background: transparent; border: 1px solid var(--cyan); border-radius: var(--r);
+  color: var(--cyan); font-family: var(--fmono); font-size: 11px; letter-spacing: 1px;
+  padding: 7px 14px; cursor: pointer; text-transform: uppercase; transition: all .2s; white-space: nowrap;
+}
+.btn-cyber:hover { background: var(--cyanglow); box-shadow: var(--shadowc); }
+.btn-cyber.btn-reset { border-color: var(--txt3); color: var(--txt2); }
+.btn-cyber.btn-reset:hover { border-color: var(--cyan); color: var(--cyan); background: var(--cyanglow); }
+.btn-live.on { background: rgba(57,255,20,.14); border-color: var(--green); color: var(--green); box-shadow: 0 0 14px rgba(57,255,20,.28); }
+
+/* ══════════════════════════════════════════════════════
+   SUMMARY CARDS
+   ══════════════════════════════════════════════════════ */
+.cards { display: grid; grid-template-columns: repeat(6,1fr); gap: 14px; margin-bottom: 18px; }
+@media(max-width:1400px){.cards{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:800px) {.cards{grid-template-columns:repeat(2,1fr)}}
+
+.scard {
+  background: var(--bgcard); border: 1px solid var(--border); border-radius: var(--rl);
+  padding: 18px 20px; position: relative; overflow: hidden;
+  transition: transform .2s, box-shadow .2s, border-color .2s; cursor: default;
+}
+.scard::before {
+  content:''; position:absolute; top:0; left:0; right:0; height:2px;
+  background: linear-gradient(90deg, transparent, var(--cac, var(--cyan)), transparent);
+}
+.scard:hover { border-color: var(--borderbr); box-shadow: var(--shadowcard), var(--shadowc); transform: translateY(-2px); }
+.ci { font-size: 22px; margin-bottom: 10px; opacity: .85; }
+.clabel { font-family: var(--fmono); font-size: 9px; color: var(--txt3); text-transform: uppercase; letter-spacing: 2px; margin-bottom: 5px; }
+.cval { font-family: var(--fdisplay); font-size: 30px; font-weight: 700; color: var(--txt1); line-height: 1; transition: all .35s; }
+.csub { font-family: var(--fmono); font-size: 10px; color: var(--txt3); margin-top: 5px; }
+
+.sc-total    { --cac: var(--cyan); }
+.sc-critical { --cac: var(--crit); } .sc-critical .cval { color: var(--crit); text-shadow: 0 0 12px rgba(255,45,85,.35); }
+.sc-loss     { --cac: var(--amber); } .sc-loss .cval { color: var(--amber); }
+.sc-countries{ --cac: var(--medium); }
+.sc-actors   { --cac: var(--magenta); }
+.sc-cvss     { --cac: var(--high); } .sc-cvss .cval { color: var(--high); }
+
+/* ══════════════════════════════════════════════════════
+   CHART PANELS
+   ══════════════════════════════════════════════════════ */
+.cpanel {
+  background: var(--bgcard); border: 1px solid var(--border); border-radius: var(--rl); padding: 18px;
+}
+.ptitle {
+  font-family: var(--fdisplay); font-size: 11px; font-weight: 700; color: var(--cyan);
+  text-transform: uppercase; letter-spacing: 2px; margin-bottom: 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.ptitle::after { content:''; flex:1; height:1px; background:var(--border); }
+.cc { position: relative; }
+
+/* Layout rows */
+.grid-main   { display: grid; grid-template-columns: 1fr 370px; gap: 14px; margin-bottom: 14px; }
+.grid-side   { display: flex; flex-direction: column; gap: 14px; }
+.grid-mid    { display: grid; grid-template-columns: 2fr 1.1fr; gap: 14px; margin-bottom: 14px; }
+.grid-finance{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 14px; }
+/* Modified grid-bot: three columns for financial heatmap, attack sources, count heatmap */
+.grid-bot    { display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 14px; margin-bottom: 18px; }
+
+@media(max-width:1300px){
+  .grid-main{grid-template-columns:1fr;}
+  .grid-mid{grid-template-columns:1fr;}
+  .grid-finance{grid-template-columns:1fr;}
+  .grid-bot{grid-template-columns:1fr;}  /* stack vertically on narrow screens */
+}
+
+/* Map */
+#mapWrap { height: 420px; border-radius: var(--r); overflow: hidden; border: 1px solid var(--border); }
+.leaflet-container { background: #05080f !important; }
+.leaflet-popup-content-wrapper {
+  background: var(--bgcard) !important; border: 1px solid var(--borderbr) !important;
+  border-radius: var(--r) !important; color: var(--txt1) !important;
+  font-family: var(--fui) !important; box-shadow: var(--shadowc) !important;
+}
+.leaflet-popup-tip { background: var(--bgcard) !important; }
+.mpop h4 { font-family: var(--fdisplay); font-size: 12px; color: var(--cyan); margin-bottom: 6px; }
+.mpop table { width:100%; font-family: var(--fmono); font-size: 11px; }
+.mpop td { padding: 2px 4px; }
+.mpop td:first-child { color: var(--txt3); }
+.mpop td:last-child  { color: var(--txt1); text-align: right; }
+
+/* Heatmaps */
+.hmtable { width: 100%; border-collapse: separate; border-spacing: 3px; font-family: var(--fmono); font-size: 11px; }
+.hmtable th { color: var(--txt3); font-weight: 400; padding: 3px 5px; text-align: center; white-space: nowrap; font-size: 10px; }
+.hmtable td { border-radius: 4px; padding: 7px 3px; text-align: center; font-weight: 600; transition: transform .15s; cursor: default; min-width: 42px; }
+.hmtable td:hover { transform: scale(1.1); z-index: 1; position: relative; }
+.hmtable .rlabel { color: var(--txt2); text-align: right; padding-right: 8px; white-space: nowrap; font-weight: 400; font-size: 10px; }
+
+/* Datatables */
+.tsection { background: var(--bgcard); border: 1px solid var(--border); border-radius: var(--rl); padding: 18px; margin-bottom: 18px; }
+.dataTables_wrapper { color: var(--txt1); }
+.dataTables_filter input, .dataTables_length select { background: var(--bg1) !important; border: 1px solid var(--border) !important; color: var(--txt1) !important; border-radius: var(--r) !important; padding: 4px 8px !important; }
+.dataTables_filter label, .dataTables_length label, .dataTables_info { color: var(--txt2) !important; font-family: var(--fmono) !important; font-size: 12px !important; }
+table.dataTable { border-collapse: separate !important; border-spacing: 0 2px !important; }
+table.dataTable thead th { background: var(--bg2) !important; border-bottom: 1px solid var(--border) !important; color: var(--cyan) !important; font-family: var(--fmono) !important; font-size: 10px !important; text-transform: uppercase !important; letter-spacing: 1px !important; white-space: nowrap; }
+table.dataTable tbody tr { background: var(--bg1) !important; transition: background .12s; }
+table.dataTable tbody tr:hover td { background: var(--bg2) !important; }
+table.dataTable tbody td { border-bottom: 1px solid rgba(255,255,255,.028) !important; color: var(--txt1) !important; font-family: var(--fui) !important; font-size: 12px !important; vertical-align: middle !important; background-color: transparent !important; box-shadow: none !important; }
+table.dataTable tbody tr.row-crit td  { background: rgba(255,45,85,.07)  !important; }
+table.dataTable tbody tr.row-high td  { background: rgba(255,107,53,.055) !important; }
+.dataTables_paginate .page-link { background: var(--bg2) !important; border-color: var(--border) !important; color: var(--txt2) !important; }
+.dataTables_paginate .page-item.active .page-link { background: var(--cyan) !important; border-color: var(--cyan) !important; color: #000 !important; }
+.dt-buttons .btn { background: transparent !important; border: 1px solid var(--border) !important; color: var(--txt2) !important; font-family: var(--fmono) !important; font-size: 11px !important; }
+.dt-buttons .btn:hover { border-color: var(--cyan) !important; color: var(--cyan) !important; }
+
+/* Badges */
+.sbadge { font-family: var(--fmono); font-size: 10px; padding: 2px 7px; border-radius: 3px; font-weight: 600; letter-spacing: 1px; white-space: nowrap; }
+.s-Critical{ background:rgba(255,45,85,.18); color:var(--crit);   border:1px solid var(--crit); }
+.s-High    { background:rgba(255,107,53,.18);color:var(--high);   border:1px solid var(--high); }
+.s-Medium  { background:rgba(255,214,10,.18); color:var(--medium);border:1px solid var(--medium); }
+.s-Low     { background:rgba(48,209,88,.18);  color:var(--low);   border:1px solid var(--low); }
+.stbadge { font-family: var(--fmono); font-size: 10px; padding: 1px 6px; border-radius: 3px; }
+.st-Active    { color:var(--crit); }
+.st-Contained { color:var(--medium); }
+.st-Resolved  { color:var(--low); }
+
+/* Ticker */
+.ticker {
+  background: var(--bgcard); border: 1px solid rgba(255,45,85,.28); border-radius: var(--r);
+  padding: 9px 16px; margin-top: 4px; display: flex; align-items: center; gap: 14px; overflow: hidden;
+}
+.ticklabel { font-family: var(--fmono); font-size: 10px; color: var(--crit);
+  text-transform: uppercase; letter-spacing: 2px; white-space: nowrap;
+  border-right: 1px solid var(--border); padding-right: 14px; flex-shrink: 0;
+  animation: blink 1.6s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.35} }
+.tickscroll { overflow: hidden; flex: 1; }
+.tickinner { display: flex; gap: 56px; white-space: nowrap; animation: scrolll 35s linear infinite; }
+@keyframes scrolll { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.tickitem { font-family: var(--fmono); font-size: 12px; color: var(--txt2); flex-shrink: 0; }
+.tickitem strong { color: var(--crit); }
+
+.nodata { display:flex; flex-direction:column; align-items:center; justify-content:center;
+  height:160px; color:var(--txt3); font-family:var(--fmono); font-size:13px; gap:10px; }
+.nodata i { font-size:28px; }
+
+/* Scrollbar & Footer */
+::-webkit-scrollbar { width:6px; height:6px; }
+::-webkit-scrollbar-track { background:var(--bg0); }
+::-webkit-scrollbar-thumb { background:var(--borderbr); border-radius:3px; }
+::-webkit-scrollbar-thumb:hover { background:var(--cyandim); }
+.dash-footer { text-align:center; padding:22px; font-family:var(--fmono); font-size:10px; color:var(--txt3); letter-spacing:2px; text-transform:uppercase; border-top:1px solid var(--border); margin-top:10px; }
 </style>
 </head>
 <body>
 
-<header class="hdr">
-  <div>
-    <div class="hdr-badge">Threat Intelligence · Interactive</div>
-    <h1>Global Cybersecurity <span>Threat</span> Intelligence</h1>
-    <p class="hdr-sub">Interactive analysis — use filters below to explore the dataset</p>
+<header class="dash-header">
+  <div class="h-brand">
+    <i class="fas fa-shield-halved h-icon"></i>
+    <div>
+      <div class="h-title">Global Cyber Threat Intelligence</div>
+      <span class="h-sub">Operational Security Dashboard — Threat Monitoring Platform</span>
+    </div>
   </div>
-  <div class="meta">
-    <div>Dataset</div><div><span>__SOURCE_FILE__</span></div>
-    <div>Records</div><div><span>__TOTAL_RECORDS__ incidents</span></div>
-    <div>Generated</div><div><span id="genDate">—</span></div>
+  <div class="h-right">
+    <div class="live-ind" id="liveInd"><div class="live-dot"></div><span id="liveLabel">OFFLINE</span></div>
+    <div class="clock" id="clock">00:00:00</div>
+    <div class="loadts">CSV LOADED<br><span id="loadTs">—</span></div>
   </div>
 </header>
 
-<div class="fbar">
-  <div class="fbar-inner">
-    <div class="fbar-row">
-      <span class="f-label">Year range</span>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <select class="yr-select" id="yrFrom"></select>
-        <span style="color:var(--t2);font-size:12px;">→</span>
-        <select class="yr-select" id="yrTo"></select>
+<main class="dash-main">
+
+  <div class="fbar">
+    <div class="fbarlabel"><i class="fas fa-sliders"></i>&nbsp; Filters</div>
+    <div class="fg"><label>Year From</label><select id="fyFrom" class="fsel"></select></div>
+    <div class="fg"><label>Year To</label><select id="fyTo"   class="fsel"></select></div>
+    <div class="fg">
+      <label>Severity</label>
+      <div class="msel" id="fsev">
+        <button class="msel-btn" type="button">All</button>
+        <div class="msel-panel">
+          <label class="msel-item"><input type="checkbox" value="Critical"> Critical</label>
+          <label class="msel-item"><input type="checkbox" value="High"> High</label>
+          <label class="msel-item"><input type="checkbox" value="Medium"> Medium</label>
+          <label class="msel-item"><input type="checkbox" value="Low"> Low</label>
+        </div>
       </div>
-      <div class="f-divider"></div>
-      <span class="f-label">Country</span>
-      <div class="pills" id="pillCountry"></div>
-      <div class="f-divider"></div>
-      <div class="stat-badge" id="incBadge">__TOTAL_RECORDS__ incidents</div>
-      <button class="reset-btn" id="resetBtn">Reset all filters</button>
     </div>
-    <div class="fbar-row">
-      <span class="f-label">Attack type</span>
-      <div class="pills" id="pillAttack"></div>
-      <div class="f-divider"></div>
-      <span class="f-label">Industry</span>
-      <div class="pills" id="pillIndustry"></div>
+    <div class="fg">
+      <label>Attack Type</label>
+      <div class="msel" id="ftype"><button class="msel-btn" type="button">All</button><div class="msel-panel"></div></div>
+    </div>
+    <div class="fg">
+      <label>Country</label>
+      <div class="msel" id="fcountry"><button class="msel-btn" type="button">All</button><div class="msel-panel"></div></div>
+    </div>
+    <div class="fg">
+      <label>Source</label>
+      <div class="msel" id="fsource"><button class="msel-btn" type="button">All</button><div class="msel-panel"></div></div>
+    </div>
+    <div class="factions">
+      <button class="btn-cyber btn-reset" id="btnReset"><i class="fas fa-rotate-left"></i> Reset</button>
+      <button class="btn-cyber btn-live"  id="btnLive"><i class="fas fa-rss"></i> Live Feed</button>
     </div>
   </div>
-</div>
 
-<main class="main">
-  <div class="kpi-grid">
-    <div class="kpi"><div class="kpi-label">Filtered Incidents</div><div class="kpi-num" id="kpi-count">—</div><div class="kpi-sub" id="kpi-count-sub">—</div></div>
-    <div class="kpi red"><div class="kpi-label">Financial Loss</div><div class="kpi-num"><span id="kpi-loss">—</span><span class="kpi-unit">B USD</span></div><div class="kpi-sub" id="kpi-loss-sub">—</div></div>
-    <div class="kpi amb"><div class="kpi-label">Users Affected</div><div class="kpi-num"><span id="kpi-users">—</span><span class="kpi-unit" id="kpi-users-unit">—</span></div><div class="kpi-sub" id="kpi-users-sub">—</div></div>
-    <div class="kpi pur"><div class="kpi-label">Avg. Resolution Time</div><div class="kpi-num"><span id="kpi-rt">—</span><span class="kpi-unit">Hours</span></div><div class="kpi-sub">Across all defense mechanisms</div></div>
+  <div class="cards">
+    <div class="scard sc-total">
+      <div class="ci"><i class="fas fa-database" style="color:var(--cyan)"></i></div>
+      <div class="clabel">Total Threats</div>
+      <div class="cval" id="cvTotal">0</div>
+      <div class="csub">incidents logged</div>
+    </div>
+    <div class="scard sc-critical">
+      <div class="ci"><i class="fas fa-triangle-exclamation" style="color:var(--crit)"></i></div>
+      <div class="clabel">Critical / High</div>
+      <div class="cval" id="cvCritHigh">0</div>
+      <div class="csub">severe events</div>
+    </div>
+    <div class="scard sc-loss">
+      <div class="ci"><i class="fas fa-sack-dollar" style="color:var(--amber)"></i></div>
+      <div class="clabel">Financial Damage</div>
+      <div class="cval">$<span id="cvLoss">0</span><span id="cvLossUnit" style="font-size:18px;margin-left:2px">M</span></div>
+      <div class="csub">cumulative estimated loss</div>
+    </div>
+    <div class="scard sc-countries">
+      <div class="ci"><i class="fas fa-globe" style="color:var(--medium)"></i></div>
+      <div class="clabel">Source Countries</div>
+      <div class="cval" id="cvCountries">0</div>
+      <div class="csub">unique nations</div>
+    </div>
+    <div class="scard sc-actors">
+      <div class="ci"><i class="fas fa-user-secret" style="color:var(--magenta)"></i></div>
+      <div class="clabel">Threat Sources</div>
+      <div class="cval" id="cvActors">0</div>
+      <div class="csub">actor groups</div>
+    </div>
+    <div class="scard sc-cvss">
+      <div class="ci"><i class="fas fa-chart-line" style="color:var(--high)"></i></div>
+      <div class="clabel">Avg CVSS</div>
+      <div class="cval" id="cvCvss">0.0</div>
+      <div class="csub">vulnerability score</div>
+    </div>
   </div>
 
-  <div class="sh"><div class="sh-t">Intelligence Findings</div><div class="sh-l"></div><div class="sh-tag">updates with filters</div></div>
-  <div class="ins-grid mb12">
-    <div class="ins"><div class="ins-lbl">Top Threat Vector</div><div class="ins-txt" id="ins1">—</div></div>
-    <div class="ins a"><div class="ins-lbl">Geographic Exposure</div><div class="ins-txt" id="ins2">—</div></div>
-    <div class="ins r"><div class="ins-lbl">Critical Vulnerability</div><div class="ins-txt" id="ins3">—</div></div>
-    <div class="ins p"><div class="ins-lbl">Defense Gap</div><div class="ins-txt" id="ins4">—</div></div>
-    <div class="ins a"><div class="ins-lbl">Hardest-Hit Sector</div><div class="ins-txt" id="ins5">—</div></div>
-    <div class="ins"><div class="ins-lbl">Peak Year</div><div class="ins-txt" id="ins6">—</div></div>
+  <div class="grid-main">
+    <div class="cpanel">
+      <div class="ptitle"><i class="fas fa-map-location-dot"></i> Threat Origin Map</div>
+      <div id="mapWrap"></div>
+    </div>
+    <div class="grid-side">
+      <div class="cpanel" style="flex:1">
+        <div class="ptitle"><i class="fas fa-chart-bar"></i> Top Attack Types</div>
+        <div class="cc" style="height:155px"><canvas id="chAtk"></canvas></div>
+      </div>
+      <div class="cpanel" style="flex:1">
+        <div class="ptitle"><i class="fas fa-chart-pie"></i> Severity Distribution</div>
+        <div class="cc" style="height:175px;display:flex;align-items:center;justify-content:center">
+          <canvas id="chSev" style="max-height:175px;max-width:280px"></canvas>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <div class="sh"><div class="sh-t">Attack Trends &amp; Financial Impact</div><div class="sh-l"></div><div class="sh-tag" id="sh-yr">—</div></div>
-  <div class="g2">
-    <div class="cc"><div class="cc-t">Incident volume by attack type</div><div class="cc-s">Annual incident count per vector</div><div class="leg" id="leg-trend"></div><div style="position:relative;height:260px;"><canvas id="cTrend"></canvas></div></div>
-    <div class="cc"><div class="cc-t">Financial loss by attack type</div><div class="cc-s">Cumulative losses (USD millions)</div><div style="position:relative;height:295px;"><canvas id="cAtkLoss"></canvas></div></div>
+  <div class="grid-mid">
+    <div class="cpanel">
+      <div class="ptitle"><i class="fas fa-chart-line"></i> Incident Timeline (Annual)</div>
+      <div class="cc" style="height:195px"><canvas id="chTime"></canvas></div>
+    </div>
+    <div class="cpanel">
+      <div class="ptitle"><i class="fas fa-industry"></i> Top Industries Targeted</div>
+      <div class="cc" style="height:195px"><canvas id="chInd"></canvas></div>
+    </div>
   </div>
 
-  <div class="sh"><div class="sh-t">Year-on-Year Financial Losses</div><div class="sh-l"></div><div class="sh-tag">USD Millions</div></div>
-  <div class="cc mb12"><div class="cc-t">Total financial damage per year</div><div class="cc-s">Highest year highlighted in red — hover bars for exact values</div><div style="position:relative;height:185px;"><canvas id="cYrLoss"></canvas></div></div>
-
-  <div class="sh"><div class="sh-t">Geographic &amp; Sector Exposure</div><div class="sh-l"></div><div class="sh-tag" id="sh-geo">—</div></div>
-  <div class="g31">
-    <div class="cc"><div class="cc-t">Financial loss by country</div><div class="cc-s">Cumulative losses per nation (USD millions)</div><div style="position:relative;height:310px;"><canvas id="cCtry"></canvas></div></div>
-    <div class="cc"><div class="cc-t">Loss by target sector</div><div class="cc-s">Share of cumulative financial exposure</div><div style="position:relative;height:310px;"><canvas id="cInd"></canvas></div></div>
+  <div class="grid-finance">
+    <div class="cpanel">
+      <div class="ptitle"><i class="fas fa-file-invoice-dollar"></i> Financial Loss by Attack Type</div>
+      <div class="cc" style="height:195px"><canvas id="chLossAtk"></canvas></div>
+    </div>
+    <div class="cpanel">
+      <div class="ptitle"><i class="fas fa-chart-area"></i> Total Financial Damage per Year</div>
+      <div class="cc" style="height:195px"><canvas id="chLossYr"></canvas></div>
+    </div>
+    <div class="cpanel">
+      <div class="ptitle"><i class="fas fa-building-columns"></i> Financial Loss by Industry</div>
+      <div class="cc" style="height:195px"><canvas id="chLossInd"></canvas></div>
+    </div>
   </div>
 
-  <div class="sh"><div class="sh-t">Threat Attribution &amp; Defense Performance</div><div class="sh-l"></div><div class="sh-tag">Source · Vulnerability · Response</div></div>
-  <div class="g3">
-    <div class="cc"><div class="cc-t">Attack source attribution</div><div class="cc-s">Incident share by threat actor type</div><div style="position:relative;height:200px;"><canvas id="cSrc"></canvas></div><div class="leg" id="leg-src" style="margin-top:10px;"></div></div>
-    <div class="cc"><div class="cc-t">Security vulnerability types</div><div class="cc-s">Exploited weaknesses across incidents</div><div style="position:relative;height:200px;"><canvas id="cVln"></canvas></div><div class="leg" id="leg-vln" style="margin-top:10px;"></div></div>
-    <div class="cc"><div class="cc-t">Defense mechanism response</div><div class="cc-s">Avg. resolution time in hours — lower is better</div><div style="position:relative;height:200px;"><canvas id="cDef"></canvas></div><div style="font-size:10.5px;color:var(--t2);margin-top:6px;font-family:'JetBrains Mono',monospace;">↓ Lower = faster resolution</div></div>
+  <div class="grid-bot">
+    <!-- Left: Existing Financial Exposure Heatmap -->
+    <div class="cpanel">
+      <div class="ptitle"><i class="fas fa-table-cells"></i> Attack Type × Industry Exposure ($M)</div>
+      <div id="hmWrap" style="overflow-x:auto; max-height:240px; overflow-y:auto;"></div>
+    </div>
+    <!-- Middle: Attack Sources -->
+    <div class="cpanel">
+      <div class="ptitle"><i class="fas fa-users"></i> Attack Sources</div>
+      <div class="cc" style="height:215px;display:flex;align-items:center;justify-content:center">
+        <canvas id="chSrc" style="max-height:215px"></canvas>
+      </div>
+    </div>
+    <!-- Right: NEW Count-based Heatmap from dashboard_generator -->
+    <div class="cpanel">
+      <div class="ptitle"><i class="fas fa-chart-simple"></i> Attack Type × Industry Heatmap (Count)</div>
+      <div id="hmCountWrap" style="overflow-x:auto; max-height:240px; overflow-y:auto;"></div>
+    </div>
   </div>
 
-  <div class="sh"><div class="sh-t">Population Exposure by Country</div><div class="sh-l"></div><div class="sh-tag">Cumulative Users</div></div>
-  <div class="cc mb12"><div class="cc-t">Total affected users per nation</div><div class="cc-s">Cumulative user count across all filtered incidents</div><div style="position:relative;height:195px;"><canvas id="cUsers"></canvas></div></div>
-
-  <div class="sh"><div class="sh-t">Country × Attack Type Heatmap</div><div class="sh-l"></div><div class="sh-tag">Financial Loss $M</div></div>
-  <div class="cc mb12">
-    <div class="cc-s" style="margin-bottom:14px;">Cumulative financial loss per country-attack combination — brighter cells = higher exposure. Grey = no data under current filters.</div>
-    <div class="hm-wrap"><table class="hm" id="hmTable"></table></div>
-    <div class="scale-bar"><span>Lower</span><div class="scale-sw" id="scaleSw"></div><span>Higher</span></div>
+  <div class="tsection">
+    <div class="ptitle"><i class="fas fa-list-ul"></i> Incident Log</div>
+    <div class="table-responsive">
+      <table id="dtTable" class="table table-hover w-100">
+        <thead><tr>
+          <th>Timestamp</th><th>Attack Type</th><th>Severity</th><th>Country</th>
+          <th>Industry</th><th>Attack Vector</th><th>Source</th>
+          <th>CVSS</th><th>Loss $M</th><th>Status</th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
   </div>
+
+  <div class="ticker">
+    <div class="ticklabel"><i class="fas fa-bolt"></i> Critical Alerts</div>
+    <div class="tickscroll"><div class="tickinner" id="tickInner"></div></div>
+  </div>
+
 </main>
 
-<footer class="footer">
-  <div class="foot-l">SOURCE: __SOURCE_FILE_UPPER__ &nbsp;·&nbsp; __TOTAL_RECORDS__ RECORDS</div>
-  <div class="foot-r">Threat Intelligence Dashboard &nbsp;·&nbsp; Generated <span id="genDate2">—</span></div>
+<footer class="dash-footer">
+  &copy; 2024 Cyber Threat Intelligence Platform &nbsp;·&nbsp;
+  Global Cybersecurity Threats 2015 – 2024
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.bootstrap5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.2/js/buttons.print.min.js"></script>
+
 <script>
-/* ── EMBEDDED DATA (all __TOTAL_RECORDS__ rows, index-encoded) ── */
-const RAW = __DATA_JSON__;
-/* Row layout: [countryIdx, yearOffset, attackIdx, industryIdx,
-               loss($M float), users(int), sourceIdx, vulnIdx,
-               defenseIdx, restime(int)] */
-const C=0,Y=1,A=2,I=3,L=4,U=5,S=6,V=7,D=8,R=9;
+/* ════════════════════════════════════════════════════════════════
+   EMBEDDED DATA
+   ════════════════════════════════════════════════════════════════ */
+const THREAT_DATA    = __DATA_JSON__;
+const LOAD_TS        = "__LOAD_TS__";
+const COUNTRIES_LIST = __COUNTRIES_JSON__;
+const TYPES_LIST     = __TYPES_JSON__;
+const SOURCES_LIST   = __SOURCES_JSON__;
+const YEARS_LIST     = __YEARS_JSON__;
+const COORDS         = __COORDS_JSON__;
+const FLAGS          = __FLAGS_JSON__;
 
-/* ── DATE ── */
-const _ds=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
-['genDate','genDate2'].forEach(id=>document.getElementById(id).textContent=_ds);
+/* ════════════════════════════════════════════════════════════════
+   GLOBAL STATE
+   ════════════════════════════════════════════════════════════════ */
+let filtered   = [...THREAT_DATA];
+let liveTimer  = null;
+let dtInst     = null;
+let lMap       = null;
+let mapLayers  = {};
 
-/* ── COLOUR PALETTES ── */
-// Up to 10 colours for each dimension (extend if your data has more)
-const ATK_C =['#00d4a0','#3da3e8','#f59e0b','#b48cf4','#ef4565','#fb923c','#34d399','#f472b6','#a3e635','#38bdf8'];
-const ATK_D =[[],[4,3],[2,2],[8,3],[5,2],[1,2],[6,2],[3,1],[7,2],[2,4]];
-const IND_C =['#00d4a0','#3da3e8','#b48cf4','#ef4565','#f59e0b','#fb923c','#34d399','#f472b6','#a3e635','#38bdf8'];
-const SRC_C =['#ef4565','#3da3e8','#f59e0b','#93aec8','#b48cf4','#34d399','#fb923c','#f472b6'];
-const VLN_C =['#b48cf4','#ef4565','#00d4a0','#3da3e8','#f59e0b','#fb923c','#34d399','#f472b6'];
-const DEF_C =['#00d4a0','#29bfad','#1faa98','#159583','#0a806e','#006b5e','#005549'];
-const CTRY_C=['#00d4a0','#00bf90','#00ab81','#009872','#008563','#007354','#006246','#005139','#00412d','#003221'];
-function clr(arr,i){return arr[i%arr.length];}
+const CH = { atk:null, sev:null, time:null, ind:null, src:null, lossAtk:null, lossYr:null, lossInd:null };
 
-/* ── FILTER STATE ── */
-const YEARS=RAW.years;
-let selC=new Set(RAW.countries.map((_,i)=>i));
-let selA=new Set(RAW.attacks.map((_,i)=>i));
-let selI=new Set(RAW.industries.map((_,i)=>i));
-let yrFrom=YEARS[0], yrTo=YEARS[YEARS.length-1];
-const TOTAL=RAW.rows.length;
+/* ════════════════════════════════════════════════════════════════
+   CHART.JS DEFAULTS
+   ════════════════════════════════════════════════════════════════ */
+const C = {
+  cyan:'#00f5ff', green:'#39ff14', magenta:'#d958f7',
+  orange:'#ff6b35', red:'#ff2d55', yellow:'#ffd60a',
+  purple:'#bf5af2', blue:'#0a84ff', teal:'#5ac8fa', amber:'#f59e0b',
+  grid:'rgba(0,245,255,.07)', txt:'#7f8faa',
+};
+const SEV_C = { Critical:'#ff2d55', High:'#ff6b35', Medium:'#ffd60a', Low:'#30d158' };
+const PAL_A = ['#00f5ff','#39ff14','#ff6b35','#ffd60a','#bf5af2','#0a84ff','#ff2d55','#5ac8fa'];
+const PAL_I = ['#00f5ff','#39ff14','#ffd60a','#bf5af2','#ff6b35','#0a84ff','#ff2d55'];
 
-/* ── FILTER UI HELPERS ── */
-function makePills(id,labels,sel,cb){
-  const w=document.getElementById(id);w.innerHTML='';
-  labels.forEach((l,i)=>{
-    const b=document.createElement('button');
-    b.className='pill'+(sel.has(i)?' on':'');
-    b.textContent=l;
-    b.addEventListener('click',()=>{
-      if(sel.has(i)){if(sel.size>1){sel.delete(i);b.classList.remove('on');}}
-      else{sel.add(i);b.classList.add('on');}
-      cb();
-    });
-    w.appendChild(b);
+Chart.defaults.color              = C.txt;
+Chart.defaults.font.family        = "'Share Tech Mono',monospace";
+Chart.defaults.font.size          = 11;
+Chart.defaults.plugins.tooltip.backgroundColor = 'rgba(9,14,28,.96)';
+Chart.defaults.plugins.tooltip.borderColor     = 'rgba(0,245,255,.3)';
+Chart.defaults.plugins.tooltip.borderWidth     = 1;
+Chart.defaults.plugins.tooltip.titleColor      = C.cyan;
+Chart.defaults.plugins.tooltip.bodyColor       = '#dde6f5';
+Chart.defaults.plugins.tooltip.padding         = 10;
+
+/* ════════════════════════════════════════════════════════════════
+   UTILITIES
+   ════════════════════════════════════════════════════════════════ */
+function countBy(arr, key) {
+  const out = {};
+  for (const r of arr) { const v = r[key] ?? 'Unknown'; out[v] = (out[v]||0) + 1; }
+  return out;
+}
+function sumBy(arr, keyGroup, keySum) {
+  const out = {};
+  for (const r of arr) { const v = r[keyGroup] ?? 'Unknown'; out[v] = (out[v]||0) + (r[keySum]||0); }
+  return out;
+}
+function animateNum(el, target) {
+  if (!el) return;
+  const raw   = el.textContent.replace(/,/g,'');
+  const start = parseFloat(raw) || 0;
+  const isF   = !Number.isInteger(target);
+  const dur   = 550;
+  let t0 = null;
+  const step = (ts) => {
+    if (!t0) t0 = ts;
+    const p = Math.min((ts-t0)/dur, 1);
+    const e = 1 - Math.pow(1-p, 3);
+    const v = start + (target-start)*e;
+    el.textContent = isF ? v.toFixed(1) : Math.round(v).toLocaleString();
+    if (p < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CLOCK
+   ════════════════════════════════════════════════════════════════ */
+function startClock() {
+  const ce = document.getElementById('clock');
+  const le = document.getElementById('loadTs');
+  if (le) le.textContent = LOAD_TS;
+  const tick = () => {
+    if (!ce) return;
+    const n = new Date();
+    ce.textContent = [n.getHours(),n.getMinutes(),n.getSeconds()]
+      .map(x=>String(x).padStart(2,'0')).join(':');
+  };
+  tick(); setInterval(tick, 1000);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   FILTER CONFIGURATION
+   Single source of truth for every filter control.
+     type 'year-from' — inclusive lower-bound on r.year (lex order is
+                        safe for 4-digit year strings)
+     type 'year-to'   — inclusive upper-bound on r.year
+     type 'multi'     — zero-or-more values; empty set = "All" (pass-through)
+   list: JS array used to dynamically populate the panel;
+         null = checkboxes are already present as static HTML.
+   ════════════════════════════════════════════════════════════════ */
+const FILTER_DEFS = [
+  { id: 'fyFrom',   key: 'year',     type: 'year-from', list: null           },
+  { id: 'fyTo',     key: 'year',     type: 'year-to',   list: null           },
+  { id: 'fsev',     key: 'severity', type: 'multi',     list: null           },  // static checkboxes in HTML
+  { id: 'ftype',    key: 'type',     type: 'multi',     list: TYPES_LIST     },
+  { id: 'fcountry', key: 'country',  type: 'multi',     list: COUNTRIES_LIST },
+  { id: 'fsource',  key: 'source',   type: 'multi',     list: SOURCES_LIST   },
+];
+
+/* ════════════════════════════════════════════════════════════════
+   FILTER HELPERS
+   ════════════════════════════════════════════════════════════════ */
+
+/** Populate the year range <select> elements (no "All" — they are range bounds). */
+function populateYearSelects() {
+  const yf = document.getElementById('fyFrom');
+  const yt = document.getElementById('fyTo');
+  YEARS_LIST.forEach(y => {
+    yf?.appendChild(new Option(y, y));
+    yt?.appendChild(new Option(y, y));
   });
 }
-function makeYrSel(id,val){
-  const el=document.getElementById(id);el.innerHTML='';
-  YEARS.forEach(y=>{
-    const o=document.createElement('option');
-    o.value=y;o.textContent=y;if(y===val)o.selected=true;
-    el.appendChild(o);
+
+/** Inject checkbox items into a .msel-panel for dynamic filters. */
+function populateMultiSelect(id, values) {
+  const panel = document.querySelector(`#${id} .msel-panel`);
+  if (!panel) return;
+  values.forEach(v => {
+    const lbl = document.createElement('label');
+    lbl.className = 'msel-item';
+    lbl.innerHTML = `<input type="checkbox" value="${v}"> ${v}`;
+    panel.appendChild(lbl);
   });
-  el.addEventListener('change',()=>{
-    if(id==='yrFrom')yrFrom=parseInt(el.value);else yrTo=parseInt(el.value);
-    if(yrFrom>yrTo){
-      if(id==='yrFrom')yrTo=yrFrom;else yrFrom=yrTo;
-      makeYrSel('yrFrom',yrFrom);makeYrSel('yrTo',yrTo);
+}
+
+/**
+ * Update the trigger-button label for a multi-select:
+ *   0 checked  → "All"
+ *   1 checked  → that value
+ *   n checked  → "n selected" badge
+ */
+function updateMultiLabel(id) {
+  const container = document.getElementById(id);
+  if (!container) return;
+  const btn     = container.querySelector('.msel-btn');
+  const checked = [...container.querySelectorAll('input:checked')].map(i => i.value);
+  if (!btn) return;
+
+  // Clear previous content, keep ::after pseudo-element via text node + optional badge
+  btn.innerHTML = '';
+  const textNode = document.createTextNode(
+    checked.length === 0 ? 'All' : checked.length === 1 ? checked[0] : ''
+  );
+  btn.appendChild(textNode);
+  if (checked.length > 1) {
+    const badge = document.createElement('span');
+    badge.className = 'msel-count';
+    badge.textContent = `${checked.length}`;
+    btn.appendChild(badge);
+  }
+}
+
+/** Read every filter control into a plain object keyed by filter id. */
+function getFilters() {
+  return Object.fromEntries(
+    FILTER_DEFS.map(({ id, type }) => {
+      if (type === 'multi') {
+        const vals = [...document.querySelectorAll(`#${id} input:checked`)].map(i => i.value);
+        return [id, vals];
+      }
+      return [id, document.getElementById(id)?.value ?? ''];
+    })
+  );
+}
+
+/** Reset all filter controls to their default values. */
+function resetFilters() {
+  FILTER_DEFS.forEach(({ id, type }) => {
+    if (type === 'year-from') {
+      const el = document.getElementById(id); if (el) el.value = YEARS_LIST[0] ?? '';
+    } else if (type === 'year-to') {
+      const el = document.getElementById(id); if (el) el.value = YEARS_LIST[YEARS_LIST.length - 1] ?? '';
+    } else if (type === 'multi') {
+      document.querySelectorAll(`#${id} input:checked`).forEach(i => { i.checked = false; });
+      updateMultiLabel(id);
     }
-    refresh();
   });
 }
 
-makePills('pillCountry',RAW.countries,selC,refresh);
-makePills('pillAttack',RAW.attacks,selA,refresh);
-makePills('pillIndustry',RAW.industries,selI,refresh);
-makeYrSel('yrFrom',YEARS[0]);
-makeYrSel('yrTo',YEARS[YEARS.length-1]);
+/**
+ * Build a single predicate function from a filters snapshot.
+ * Each active filter contributes one check; all must pass (AND logic).
+ * Multi filters with nothing selected are treated as "All" (pass-through).
+ * Returns () => true when no filters are active.
+ */
+function buildPredicate(filters) {
+  const checks = FILTER_DEFS.flatMap(({ id, key, type }) => {
+    const val = filters[id];
+    switch (type) {
+      case 'year-from': return val ? [r => r[key] >= val] : [];
+      case 'year-to':   return val ? [r => r[key] <= val] : [];
+      case 'multi':     return val.length ? [r => val.includes(r[key])] : [];
+      default:          return [];
+    }
+  });
+  return checks.length === 0 ? () => true : r => checks.every(fn => fn(r));
+}
 
-document.getElementById('resetBtn').addEventListener('click',()=>{
-  RAW.countries.forEach((_,i)=>selC.add(i));
-  RAW.attacks.forEach((_,i)=>selA.add(i));
-  RAW.industries.forEach((_,i)=>selI.add(i));
-  yrFrom=YEARS[0];yrTo=YEARS[YEARS.length-1];
-  ['pillCountry','pillAttack','pillIndustry'].forEach(id=>
-    document.getElementById(id).querySelectorAll('.pill').forEach(p=>p.classList.add('on')));
-  makeYrSel('yrFrom',YEARS[0]);
-  makeYrSel('yrTo',YEARS[YEARS.length-1]);
-  refresh();
+/* ════════════════════════════════════════════════════════════════
+   FILTER INIT + APPLY
+   ════════════════════════════════════════════════════════════════ */
+function initFilters() {
+  // 1. Populate year range selects and apply defaults
+  populateYearSelects();
+  resetFilters();
+
+  // 2. Populate dynamic multi-select panels (fsev is static HTML)
+  FILTER_DEFS.filter(d => d.type === 'multi' && d.list)
+    .forEach(({ id, list }) => populateMultiSelect(id, list));
+
+  // 3. Wire each multi-select: toggle panel + react to checkbox changes
+  FILTER_DEFS.filter(d => d.type === 'multi').forEach(({ id }) => {
+    const container = document.getElementById(id);
+    if (!container) return;
+
+    container.querySelector('.msel-btn')?.addEventListener('click', e => {
+      e.stopPropagation();
+      const panel = container.querySelector('.msel-panel');
+      const btn   = e.currentTarget;
+      // Close any other open panels first
+      document.querySelectorAll('.msel-panel.open').forEach(p => {
+        if (p !== panel) { p.classList.remove('open'); p.previousElementSibling?.classList.remove('open'); }
+      });
+      const isOpen = panel.classList.toggle('open');
+      btn.classList.toggle('open', isOpen);
+    });
+
+    container.querySelector('.msel-panel')?.addEventListener('click',  e => e.stopPropagation());
+    container.querySelector('.msel-panel')?.addEventListener('change', () => {
+      updateMultiLabel(id);
+      applyFilters();
+    });
+  });
+
+  // 4. Wire year range selects
+  ['fyFrom', 'fyTo'].forEach(id => {
+    document.getElementById(id)?.addEventListener('change', applyFilters);
+  });
+
+  // 5. Close any open panel when clicking outside
+  document.addEventListener('click', () => {
+    document.querySelectorAll('.msel-panel.open').forEach(p => {
+      p.classList.remove('open');
+      p.previousElementSibling?.classList.remove('open');
+    });
+  });
+
+  // 6. Reset and live-feed buttons
+  document.getElementById('btnReset')?.addEventListener('click', () => { resetFilters(); applyFilters(); });
+  document.getElementById('btnLive')?.addEventListener('click', toggleLive);
+}
+
+function applyFilters() {
+  filtered = THREAT_DATA.filter(buildPredicate(getFilters()));
+  updateAll();
+}
+
+/* ════════════════════════════════════════════════════════════════
+   UPDATE ALL
+   ════════════════════════════════════════════════════════════════ */
+function updateAll() {
+  const fns = [updateCards, updateMap, updateAtkChart, updateSevChart,
+               updateTimeChart, updateIndChart, updateLossAtkChart,
+               updateLossYrChart, updateLossIndChart, 
+               updateSrcChart, updateHeatmap, updateCountHeatmap,
+               updateTable, updateTicker];
+  fns.forEach(fn => { try { fn(filtered); } catch(e) { console.warn(fn.name, e); } });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CARDS
+   ════════════════════════════════════════════════════════════════ */
+function updateCards(d) {
+  const total    = d.length;
+  const critHigh = d.filter(r => r.severity==='Critical'||r.severity==='High').length;
+  const totalLoss = d.reduce((s,r) => s+r.loss, 0);
+  const nations  = new Set(d.map(r=>r.country)).size;
+  const actors   = new Set(d.map(r=>r.source)).size;
+  const avgCvss  = total ? d.reduce((s,r)=>s+r.cvss,0)/total : 0;
+
+  animateNum(document.getElementById('cvTotal'),    total);
+  animateNum(document.getElementById('cvCritHigh'), critHigh);
+  
+  let dispLoss = totalLoss, unit = 'M';
+  if (totalLoss >= 1000) { dispLoss = totalLoss / 1000; unit = 'B'; }
+  document.getElementById('cvLossUnit').textContent = unit;
+  animateNum(document.getElementById('cvLoss'), dispLoss);
+
+  animateNum(document.getElementById('cvCountries'),nations);
+  animateNum(document.getElementById('cvActors'),   actors);
+  animateNum(document.getElementById('cvCvss'),     parseFloat(avgCvss.toFixed(1)));
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LEAFLET MAP
+   ════════════════════════════════════════════════════════════════ */
+function initMap() {
+  try {
+    lMap = L.map('mapWrap',{center:[20,10],zoom:2,zoomControl:true,attributionControl:false});
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      {subdomains:'abcd',maxZoom:10}).addTo(lMap);
+    L.control.attribution({prefix:false}).addTo(lMap);
+    lMap.attributionControl.addAttribution('© CARTO');
+    updateMap(THREAT_DATA);
+  } catch(e) {
+    console.warn('Map init failed:', e);
+    document.getElementById('mapWrap').innerHTML =
+      '<div class="nodata"><i class="fas fa-map-location-dot"></i><span>Map unavailable</span></div>';
+  }
+}
+
+function updateMap(d) {
+  if (!lMap) return;
+  const cnt    = countBy(d, 'country');
+  const topTyp = {}, totLoss = {};
+  d.forEach(r => {
+    if (!topTyp[r.country]) topTyp[r.country] = {};
+    topTyp[r.country][r.type] = (topTyp[r.country][r.type]||0)+1;
+    totLoss[r.country] = (totLoss[r.country]||0) + r.loss;
+  });
+  const maxC = Math.max(1, ...Object.values(cnt));
+
+  Object.values(mapLayers).forEach(m => { try { m.remove(); } catch(e){} });
+  mapLayers = {};
+
+  Object.entries(COORDS).forEach(([country, coords]) => {
+    const c = cnt[country] || 0; if (!c) return;
+    const ratio  = c / maxC;
+    const radius = 10 + ratio * 38;
+    const g      = Math.round(140 + ratio * 115);
+    const b      = Math.round(200 + ratio * 55);
+    const top    = Object.entries(topTyp[country]||{}).sort((a,b)=>b[1]-a[1])[0];
+    const loss   = (totLoss[country]||0).toFixed(1);
+
+    const m = L.circleMarker(coords, {
+      radius, fillColor:`rgba(0,${g},${b},.7)`, fillOpacity:.65,
+      color: C.cyan, weight:1.5, opacity:.85,
+    });
+    m.bindPopup(`<div class="mpop">
+      <h4>${country}</h4>
+      <table>
+        <tr><td>Incidents</td><td><strong>${c.toLocaleString()}</strong></td></tr>
+        <tr><td>Top Threat</td><td>${top ? top[0] : 'N/A'}</td></tr>
+        <tr><td>Total Loss</td><td>$${loss}M</td></tr>
+       </table>
+      </div>`, {className:'cpop'});
+    m.on('click', () => {
+      // Toggle the matching country checkbox on; clear the rest — same as a quick single-select
+      document.querySelectorAll('#fcountry input').forEach(i => { i.checked = (i.value === country); });
+      updateMultiLabel('fcountry');
+      applyFilters();
+    });
+    m.addTo(lMap);
+    mapLayers[country] = m;
+  });
+}
+
+/* ════════════════════════════════════════════════════════════════
+   CHART INIT HELPERS
+   ════════════════════════════════════════════════════════════════ */
+const scaleOpts = () => ({
+  x: { grid:{color:C.grid}, ticks:{color:C.txt}, border:{color:'transparent'} },
+  y: { grid:{color:C.grid}, ticks:{color:C.txt}, border:{color:'transparent'} },
 });
-
-/* ── COMPUTE AGGREGATIONS FROM RAW DATA ── */
-function compute(){
-  let cnt=0,tL=0,tU=0,tR=0;
-  const nC=RAW.countries.length,nA=RAW.attacks.length,nI=RAW.industries.length;
-  const nS=RAW.sources.length,nV=RAW.vulns.length,nD=RAW.defenses.length,nY=YEARS.length;
-  const byC=Array.from({length:nC},()=>({loss:0,users:0,cnt:0}));
-  const byA=Array.from({length:nA},()=>({loss:0,cnt:0}));
-  const byI=Array.from({length:nI},()=>({loss:0}));
-  const byS=new Int32Array(nS),byV=new Int32Array(nV);
-  const byD=Array.from({length:nD},()=>({rt:0,cnt:0}));
-  const byY=Array.from({length:nY},()=>({loss:0,cnt:0,atk:new Int32Array(nA)}));
-  const hm=Array.from({length:nC},()=>new Float64Array(nA));
-
-  for(const r of RAW.rows){
-    const yr=RAW.minYear+r[Y];
-    if(!selC.has(r[C])||!selA.has(r[A])||!selI.has(r[I])||yr<yrFrom||yr>yrTo) continue;
-    cnt++;tL+=r[L];tU+=r[U];tR+=r[R];
-    byC[r[C]].loss+=r[L];byC[r[C]].users+=r[U];byC[r[C]].cnt++;
-    byA[r[A]].loss+=r[L];byA[r[A]].cnt++;
-    byI[r[I]].loss+=r[L];
-    byS[r[S]]++;byV[r[V]]++;
-    byD[r[D]].rt+=r[R];byD[r[D]].cnt++;
-    byY[r[Y]].loss+=r[L];byY[r[Y]].cnt++;byY[r[Y]].atk[r[A]]++;
-    hm[r[C]][r[A]]+=r[L];
-  }
-  return {cnt,tL,tU,avgRT:cnt?tR/cnt:0,byC,byA,byI,byS,byV,byD,byY,hm};
-}
-
-/* ── CHART.JS DEFAULTS ── */
-Chart.defaults.color='#93aec8';
-Chart.defaults.borderColor='rgba(0,210,155,0.09)';
-Chart.defaults.font.family="'JetBrains Mono', monospace";
-Chart.defaults.font.size=11;
-Chart.defaults.plugins.tooltip.backgroundColor='#0c1828';
-Chart.defaults.plugins.tooltip.borderColor='rgba(0,212,160,0.35)';
-Chart.defaults.plugins.tooltip.borderWidth=1;
-Chart.defaults.plugins.tooltip.padding=10;
-Chart.defaults.plugins.tooltip.titleColor='#d8eaf8';
-Chart.defaults.plugins.tooltip.bodyColor='#93aec8';
-
-/* ── CHART INSTANCES ── */
-const CH={};
-let initialized=false;
-
-function initCharts(g){
-  /* trend legend */
-  const lt=document.getElementById('leg-trend');lt.innerHTML='';
-  RAW.attacks.forEach((n,i)=>{
-    const d=document.createElement('div');d.className='li';
-    d.innerHTML=`<div class="ld" style="background:${clr(ATK_C,i)}"></div>${n}`;
-    lt.appendChild(d);
-  });
-
-  /* 1 — Trend line */
-  CH.trend=new Chart(document.getElementById('cTrend'),{
-    type:'line',
-    data:{
-      labels:YEARS,
-      datasets:RAW.attacks.map((nm,i)=>({
-        label:nm, data:g.byY.map(y=>y.atk[i]),
-        borderColor:clr(ATK_C,i), backgroundColor:'transparent',
-        borderWidth:2, pointRadius:3, pointBackgroundColor:clr(ATK_C,i),
-        tension:0.3, borderDash:ATK_D[i]||[],
-      }))
+const noLegend  = { legend:{display:false} };
+const baseBar   = (id) => {
+  const ctx = document.getElementById(id)?.getContext('2d');
+  if (!ctx) return null;
+  return new Chart(ctx, {
+    type:'bar',
+    data:{labels:[],datasets:[{data:[],backgroundColor:[],borderRadius:4,borderWidth:1}]},
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins: noLegend, scales: scaleOpts(),
     },
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false}},
-      scales:{
-        x:{grid:{color:'rgba(0,210,155,0.07)'},ticks:{autoSkip:false,maxRotation:0}},
-        y:{grid:{color:'rgba(0,210,155,0.07)'},min:0,
-           title:{display:true,text:'Incidents',color:'#93aec8',font:{size:10}}}
-      }
-    }
   });
+};
 
-  /* 2 — Attack loss h-bar */
-  const sA=[...RAW.attacks.map((n,i)=>({n,i,loss:g.byA[i].loss}))].sort((a,b)=>b.loss-a.loss);
-  CH.atkLoss=new Chart(document.getElementById('cAtkLoss'),{
-    type:'bar',
-    data:{labels:sA.map(x=>x.n),datasets:[{
-      label:'Loss $M', data:sA.map(x=>x.loss),
-      backgroundColor:sA.map(x=>clr(ATK_C,x.i)),
-      borderRadius:4, borderSkipped:false,
-    }]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` $${(ctx.raw/1000).toFixed(2)}B`}}},
-      scales:{
-        x:{grid:{color:'rgba(0,210,155,0.07)'},ticks:{callback:v=>`$${(v/1000).toFixed(0)}B`}},
-        y:{grid:{display:false}}
-      }
-    }
-  });
+/* ─ Counts Charts (Top) ─ */
+function initAtkChart()  { CH.atk  = baseBar('chAtk'); }
+function updateAtkChart(d) {
+  if (!CH.atk) return;
+  const e = Object.entries(countBy(d,'type')).sort((a,b)=>b[1]-a[1]);
+  CH.atk.data.labels = e.map(x=>x[0]);
+  CH.atk.data.datasets[0].data = e.map(x=>x[1]);
+  CH.atk.data.datasets[0].backgroundColor = e.map((_,i)=>PAL_A[i%PAL_A.length]+'99');
+  CH.atk.data.datasets[0].borderColor = e.map((_,i)=>PAL_A[i%PAL_A.length]);
+  CH.atk.update('active');
+}
 
-  /* 3 — Yearly loss bar */
-  const yl=g.byY.map(y=>y.loss),mxY=Math.max(...yl);
-  CH.yrLoss=new Chart(document.getElementById('cYrLoss'),{
-    type:'bar',
-    data:{labels:YEARS,datasets:[{
-      label:'Loss $M', data:yl,
-      backgroundColor:yl.map(v=>Math.round(v)===Math.round(mxY)&&v>0?'#ef4565':'#00d4a0'),
-      borderRadius:4, borderSkipped:false,
-    }]},
-    options:{responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` $${(ctx.raw/1000).toFixed(2)}B`}}},
-      scales:{
-        x:{grid:{display:false},ticks:{autoSkip:false,maxRotation:0}},
-        y:{grid:{color:'rgba(0,210,155,0.07)'},ticks:{callback:v=>`$${(v/1000).toFixed(0)}B`}}
-      }
-    }
-  });
-
-  /* 4 — Country h-bar */
-  const cS=[...g.byC.map((d,i)=>({n:RAW.countries[i],i,loss:d.loss}))].sort((a,b)=>b.loss-a.loss);
-  CH.ctry=new Chart(document.getElementById('cCtry'),{
-    type:'bar',
-    data:{labels:cS.map(x=>x.n),datasets:[{
-      label:'Loss $M', data:cS.map(x=>x.loss),
-      backgroundColor:cS.map((_,i)=>clr(CTRY_C,i)),
-      borderRadius:4, borderSkipped:false,
-    }]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` $${(ctx.raw/1000).toFixed(2)}B`}}},
-      scales:{
-        x:{grid:{color:'rgba(0,210,155,0.07)'},ticks:{callback:v=>`$${(v/1000).toFixed(0)}B`}},
-        y:{grid:{display:false}}
-      }
-    }
-  });
-
-  /* 5 — Industry donut */
-  CH.ind=new Chart(document.getElementById('cInd'),{
+function initSevChart() {
+  const ctx = document.getElementById('chSev')?.getContext('2d'); if (!ctx) return;
+  CH.sev = new Chart(ctx, {
     type:'doughnut',
-    data:{labels:RAW.industries,datasets:[{
-      data:g.byI.map(x=>x.loss),
-      backgroundColor:RAW.industries.map((_,i)=>clr(IND_C,i)),
-      borderWidth:0, hoverOffset:10,
-    }]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
+    data:{
+      labels:['Critical','High','Medium','Low'],
+      datasets:[{
+        data:[0,0,0,0],
+        backgroundColor:['rgba(255,45,85,.78)','rgba(255,107,53,.78)','rgba(255,214,10,.78)','rgba(48,209,88,.78)'],
+        borderColor:['#ff2d55','#ff6b35','#ffd60a','#30d158'],
+        borderWidth:1.5, hoverOffset:8,
+      }],
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false, cutout:'65%',
       plugins:{
-        legend:{display:true,position:'bottom',labels:{
-          color:'#93aec8',font:{size:10.5},padding:8,
-          usePointStyle:true,pointStyleWidth:10,
-          generateLabels:chart=>{
-            const d=chart.data;
-            const tot=d.datasets[0].data.reduce((a,b)=>a+b,0)||1;
-            return d.labels.map((lbl,i)=>({
-              text:`${lbl}  ${((d.datasets[0].data[i]/tot)*100).toFixed(1)}%`,
-              fillStyle:d.datasets[0].backgroundColor[i],
-              strokeStyle:'transparent',pointStyle:'rect',index:i,
-            }));
-          }
-        }},
-        tooltip:{callbacks:{label:ctx=>{
-          const tot=ctx.dataset.data.reduce((a,b)=>a+b,0)||1;
-          return ` $${(ctx.raw/1000).toFixed(1)}B (${((ctx.raw/tot)*100).toFixed(1)}%)`;
-        }}}
-      }
-    }
+        legend:{position:'bottom',labels:{padding:9,boxWidth:9,font:{size:10}}},
+        tooltip:{callbacks:{label:c=>{
+          const tot = c.dataset.data.reduce((a,b)=>a+b,0);
+          const pct = tot ? ((c.parsed/tot)*100).toFixed(1) : '0.0';
+          return ` ${c.label}: ${c.parsed.toLocaleString()} (${pct}%)`;
+        }}},
+      },
+    },
   });
+}
+function updateSevChart(d) {
+  if (!CH.sev) return;
+  const c = countBy(d,'severity');
+  CH.sev.data.datasets[0].data = ['Critical','High','Medium','Low'].map(s=>c[s]||0);
+  CH.sev.update('active');
+}
 
-  /* 6 — Source donut */
-  CH.src=new Chart(document.getElementById('cSrc'),{
-    type:'doughnut',
-    data:{labels:RAW.sources,datasets:[{
-      data:[...g.byS],
-      backgroundColor:RAW.sources.map((_,i)=>clr(SRC_C,i)),
-      borderWidth:0, hoverOffset:10,
+function initTimeChart() {
+  const ctx = document.getElementById('chTime')?.getContext('2d'); if (!ctx) return;
+  CH.time = new Chart(ctx, {
+    type:'line',
+    data:{labels:[],datasets:[{
+      label:'Incidents', data:[],
+      borderColor: C.cyan,
+      backgroundColor: (ctx2) => {
+        const {ctx:c, chartArea} = ctx2.chart;
+        if (!chartArea) return 'transparent';
+        const g = c.createLinearGradient(0,chartArea.top,0,chartArea.bottom);
+        g.addColorStop(0,'rgba(0,245,255,.32)'); g.addColorStop(1,'rgba(0,245,255,0)');
+        return g;
+      },
+      borderWidth:2, fill:true, tension:.4,
+      pointBackgroundColor:C.cyan, pointRadius:4, pointHoverRadius:7,
     }]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
-      plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>{
-          const t=ctx.dataset.data.reduce((a,b)=>a+b,0)||1;
-          return ` ${ctx.label}: ${ctx.raw} (${((ctx.raw/t)*100).toFixed(1)}%)`;
-        }}}
-      }
-    }
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{...noLegend, tooltip:{callbacks:{label:c=>` ${c.parsed.y.toLocaleString()} incidents`}}},
+      scales: scaleOpts(),
+    },
   });
+}
+function updateTimeChart(d) {
+  if (!CH.time) return;
+  const c = countBy(d,'year');
+  const ys = Object.keys(c).sort();
+  CH.time.data.labels = ys;
+  CH.time.data.datasets[0].data = ys.map(y=>c[y]);
+  CH.time.update('active');
+}
 
-  /* 7 — Vuln donut */
-  CH.vln=new Chart(document.getElementById('cVln'),{
-    type:'doughnut',
-    data:{labels:RAW.vulns,datasets:[{
-      data:[...g.byV],
-      backgroundColor:RAW.vulns.map((_,i)=>clr(VLN_C,i)),
-      borderWidth:0, hoverOffset:10,
-    }]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'60%',
-      plugins:{legend:{display:false},
-        tooltip:{callbacks:{label:ctx=>{
-          const t=ctx.dataset.data.reduce((a,b)=>a+b,0)||1;
-          return ` ${ctx.label}: ${ctx.raw} (${((ctx.raw/t)*100).toFixed(1)}%)`;
-        }}}
-      }
-    }
-  });
+function initIndChart()  { CH.ind = baseBar('chInd'); }
+function updateIndChart(d) {
+  if (!CH.ind) return;
+  const e = Object.entries(countBy(d,'industry')).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  CH.ind.data.labels = e.map(x=>x[0]);
+  CH.ind.data.datasets[0].data = e.map(x=>x[1]);
+  CH.ind.data.datasets[0].backgroundColor = e.map((_,i)=>PAL_I[i%PAL_I.length]+'99');
+  CH.ind.data.datasets[0].borderColor = e.map((_,i)=>PAL_I[i%PAL_I.length]);
+  CH.ind.update('active');
+}
 
-  /* 8 — Defense h-bar */
-  const dS=g.byD.map((d,i)=>({n:RAW.defenses[i],avg:d.cnt?d.rt/d.cnt:0})).sort((a,b)=>a.avg-b.avg);
-  CH.def=new Chart(document.getElementById('cDef'),{
+/* ─ Financial Charts (Middle) ─ */
+function initLossAtkChart() { CH.lossAtk = baseBar('chLossAtk'); }
+function updateLossAtkChart(d) {
+  if (!CH.lossAtk) return;
+  const e = Object.entries(sumBy(d,'type','loss')).sort((a,b)=>b[1]-a[1]);
+  CH.lossAtk.data.labels = e.map(x=>x[0]);
+  CH.lossAtk.data.datasets[0].data = e.map(x=>x[1]);
+  CH.lossAtk.data.datasets[0].backgroundColor = e.map((_,i)=>PAL_A[i%PAL_A.length]+'99');
+  CH.lossAtk.data.datasets[0].borderColor = e.map((_,i)=>PAL_A[i%PAL_A.length]);
+  CH.lossAtk.options.plugins.tooltip = { callbacks: { label: c => ` $${c.parsed.x.toLocaleString()}M` } };
+  CH.lossAtk.update('active');
+}
+
+function initLossYrChart() {
+  const ctx = document.getElementById('chLossYr')?.getContext('2d'); if(!ctx) return;
+  CH.lossYr = new Chart(ctx, {
     type:'bar',
-    data:{labels:dS.map(x=>x.n),datasets:[{
-      label:'Avg Hours', data:dS.map(x=>x.avg),
-      backgroundColor:dS.map((_,i)=>clr(DEF_C,i)),
-      borderRadius:4, borderSkipped:false,
-    }]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${ctx.raw.toFixed(2)} hrs avg`}}},
-      scales:{
-        x:{grid:{color:'rgba(0,210,155,0.07)'},min:0,ticks:{callback:v=>`${v.toFixed(0)}h`}},
-        y:{grid:{display:false}}
-      }
-    }
-  });
-
-  /* 9 — Users h-bar */
-  const uS=[...g.byC.map((d,i)=>({n:RAW.countries[i],i,users:d.users}))].sort((a,b)=>b.users-a.users);
-  CH.users=new Chart(document.getElementById('cUsers'),{
-    type:'bar',
-    data:{labels:uS.map(x=>x.n),datasets:[{
-      label:'Users', data:uS.map(x=>x.users),
-      backgroundColor:uS.map((_,i)=>clr(CTRY_C,i)),
-      borderRadius:4, borderSkipped:false,
-    }]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,
-      plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>` ${(ctx.raw/1e6).toFixed(1)}M users`}}},
-      scales:{
-        x:{grid:{color:'rgba(0,210,155,0.07)'},ticks:{callback:v=>`${(v/1e6).toFixed(0)}M`}},
-        y:{grid:{display:false}}
-      }
+    data:{labels:[],datasets:[{label:'Loss $M',data:[],backgroundColor:C.amber+'99',borderColor:C.amber,borderWidth:1}]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{...noLegend, tooltip:{callbacks:{label:c=>` $${c.parsed.y.toLocaleString()}M`}}},
+      scales: scaleOpts()
     }
   });
 }
-
-/* ── UPDATE CHARTS (called on each filter change) ── */
-function updateCharts(g){
-  /* trend */
-  RAW.attacks.forEach((_,i)=>{CH.trend.data.datasets[i].data=g.byY.map(y=>y.atk[i]);});
-  CH.trend.update();
-
-  /* attack loss */
-  const sA=[...RAW.attacks.map((n,i)=>({n,i,loss:g.byA[i].loss}))].sort((a,b)=>b.loss-a.loss);
-  CH.atkLoss.data.labels=sA.map(x=>x.n);
-  CH.atkLoss.data.datasets[0].data=sA.map(x=>x.loss);
-  CH.atkLoss.data.datasets[0].backgroundColor=sA.map(x=>clr(ATK_C,x.i));
-  CH.atkLoss.update();
-
-  /* yearly loss */
-  const yl=g.byY.map(y=>y.loss),mxY=Math.max(...yl);
-  CH.yrLoss.data.datasets[0].data=yl;
-  CH.yrLoss.data.datasets[0].backgroundColor=yl.map(v=>Math.round(v)===Math.round(mxY)&&v>0?'#ef4565':'#00d4a0');
-  CH.yrLoss.update();
-
-  /* country */
-  const cS=[...g.byC.map((d,i)=>({n:RAW.countries[i],i,loss:d.loss}))].sort((a,b)=>b.loss-a.loss);
-  CH.ctry.data.labels=cS.map(x=>x.n);
-  CH.ctry.data.datasets[0].data=cS.map(x=>x.loss);
-  CH.ctry.data.datasets[0].backgroundColor=cS.map((_,i)=>clr(CTRY_C,i));
-  CH.ctry.update();
-
-  /* industry */
-  CH.ind.data.datasets[0].data=g.byI.map(x=>x.loss);CH.ind.update();
-
-  /* source */
-  CH.src.data.datasets[0].data=[...g.byS];CH.src.update();
-
-  /* vuln */
-  CH.vln.data.datasets[0].data=[...g.byV];CH.vln.update();
-
-  /* defense */
-  const dS=g.byD.map((d,i)=>({n:RAW.defenses[i],avg:d.cnt?d.rt/d.cnt:0})).sort((a,b)=>a.avg-b.avg);
-  CH.def.data.labels=dS.map(x=>x.n);
-  CH.def.data.datasets[0].data=dS.map(x=>x.avg);
-  CH.def.update();
-
-  /* users */
-  const uS=[...g.byC.map((d,i)=>({n:RAW.countries[i],i,users:d.users}))].sort((a,b)=>b.users-a.users);
-  CH.users.data.labels=uS.map(x=>x.n);
-  CH.users.data.datasets[0].data=uS.map(x=>x.users);
-  CH.users.data.datasets[0].backgroundColor=uS.map((_,i)=>clr(CTRY_C,i));
-  CH.users.update();
+function updateLossYrChart(d) {
+  if (!CH.lossYr) return;
+  const c = sumBy(d,'year','loss');
+  const ys = Object.keys(c).sort();
+  CH.lossYr.data.labels = ys;
+  CH.lossYr.data.datasets[0].data = ys.map(y=>c[y]);
+  CH.lossYr.update('active');
 }
 
-/* ── KPI UPDATE ── */
-function updateKPI(g){
-  document.getElementById('kpi-count').textContent=g.cnt.toLocaleString();
-  document.getElementById('kpi-count-sub').textContent=`of ${TOTAL.toLocaleString()} total (${((g.cnt/TOTAL)*100).toFixed(1)}%)`;
-  const lB=g.tL/1000;
-  document.getElementById('kpi-loss').textContent=lB>=100?lB.toFixed(1):lB.toFixed(2);
-  document.getElementById('kpi-loss-sub').textContent=g.cnt?`~$${(g.tL/g.cnt).toFixed(1)}M avg per incident`:'—';
-  const uB=g.tU/1e9,uM=g.tU/1e6;
-  document.getElementById('kpi-users').textContent=uB>=1?uB.toFixed(2):uM.toFixed(0);
-  document.getElementById('kpi-users-unit').textContent=uB>=1?'Billion':'Million';
-  document.getElementById('kpi-users-sub').textContent=g.cnt?`~${((g.tU/g.cnt)/1000).toFixed(0)}K avg per incident`:'—';
-  document.getElementById('kpi-rt').textContent=g.avgRT?g.avgRT.toFixed(1):'—';
+function initLossIndChart() { CH.lossInd = baseBar('chLossInd'); }
+function updateLossIndChart(d) {
+  if (!CH.lossInd) return;
+  const e = Object.entries(sumBy(d,'industry','loss')).sort((a,b)=>b[1]-a[1]).slice(0,7);
+  CH.lossInd.data.labels = e.map(x=>x[0]);
+  CH.lossInd.data.datasets[0].data = e.map(x=>x[1]);
+  CH.lossInd.data.datasets[0].backgroundColor = e.map((_,i)=>PAL_I[i%PAL_I.length]+'99');
+  CH.lossInd.data.datasets[0].borderColor = e.map((_,i)=>PAL_I[i%PAL_I.length]);
+  CH.lossInd.options.plugins.tooltip = { callbacks: { label: c => ` $${c.parsed.x.toLocaleString()}M` } };
+  CH.lossInd.update('active');
 }
 
-/* ── INSIGHTS UPDATE ── */
-function updateInsights(g){
-  const topA=[...g.byA].map((d,i)=>({n:RAW.attacks[i],loss:d.loss})).filter(x=>x.loss>0).sort((a,b)=>b.loss-a.loss);
-  document.getElementById('ins1').innerHTML=topA.length
-    ?`<b>${topA[0].n}</b> caused the most financial damage ($${(topA[0].loss/1000).toFixed(1)}B) in the current selection.`
-    :'No data for current filters.';
 
-  const topC=[...g.byC].map((d,i)=>({n:RAW.countries[i],loss:d.loss})).filter(x=>x.loss>0).sort((a,b)=>b.loss-a.loss);
-  const topCu=[...g.byC].map((d,i)=>({n:RAW.countries[i],users:d.users})).filter(x=>x.users>0).sort((a,b)=>b.users-a.users);
-  document.getElementById('ins2').innerHTML=topC.length
-    ?`<b>${topC[0].n}</b> leads in losses ($${(topC[0].loss/1000).toFixed(1)}B).${topCu.length?` <b>${topCu[0].n}</b> has the most affected users (${(topCu[0].users/1e6).toFixed(1)}M).`:''}`
-    :'No data for current filters.';
-
-  const topV=[...g.byV].map((cnt,i)=>({n:RAW.vulns[i],cnt})).filter(x=>x.cnt>0).sort((a,b)=>b.cnt-a.cnt);
-  const totV=topV.reduce((a,b)=>a+b.cnt,0)||1;
-  document.getElementById('ins3').innerHTML=topV.length
-    ?`<b>${topV[0].n}</b> is the most exploited weakness (${((topV[0].cnt/totV)*100).toFixed(1)}% of incidents).`
-    :'No data for current filters.';
-
-  const dp=g.byD.map((d,i)=>({n:RAW.defenses[i],avg:d.cnt?d.rt/d.cnt:null})).filter(x=>x.avg!==null).sort((a,b)=>a.avg-b.avg);
-  document.getElementById('ins4').innerHTML=dp.length>=2
-    ?`<b>${dp[0].n}</b> resolves fastest (${dp[0].avg.toFixed(1)}h avg). <b>${dp[dp.length-1].n}</b> is slowest (${dp[dp.length-1].avg.toFixed(1)}h).`
-    :dp.length===1?`<b>${dp[0].n}</b>: ${dp[0].avg.toFixed(1)}h avg.`
-    :'No data for current filters.';
-
-  const topI=[...g.byI].map((d,i)=>({n:RAW.industries[i],loss:d.loss})).filter(x=>x.loss>0).sort((a,b)=>b.loss-a.loss);
-  document.getElementById('ins5').innerHTML=topI.length
-    ?`<b>${topI[0].n}</b> suffered the greatest losses ($${(topI[0].loss/1000).toFixed(1)}B).`
-    :'No data for current filters.';
-
-  const topY=g.byY.map((d,i)=>({yr:RAW.minYear+i,cnt:d.cnt,loss:d.loss})).filter(x=>x.cnt>0).sort((a,b)=>b.cnt-a.cnt);
-  document.getElementById('ins6').innerHTML=topY.length
-    ?`<b>${topY[0].yr}</b> had the most incidents (${topY[0].cnt}) with $${(topY[0].loss/1000).toFixed(1)}B in losses.`
-    :'No data for current filters.';
-
-  /* section tags */
-  const eY=document.getElementById('sh-yr');if(eY)eY.textContent=`${yrFrom}–${yrTo}`;
-  const eG=document.getElementById('sh-geo');if(eG)eG.textContent=`${selC.size} Countries · ${selI.size} Industries`;
-}
-
-/* ── HEATMAP UPDATE ── */
-function updateHeatmap(g){
-  const allV=g.hm.map(row=>[...row]).flat().filter(v=>v>0);
-  const minV=allV.length?Math.min(...allV):0;
-  const maxV=allV.length?Math.max(...allV):1;
-
-  function hmBg(v){
-    if(v<=0) return null;
-    const t=(v-minV)/(maxV-minV||1);
-    return `rgb(${Math.round(10*(1-t))},${Math.round(42+t*170)},${Math.round(32+t*128)})`;
-  }
-  // Text colour: light on dark cells, dark on bright cells
-  function hmFg(v){
-    const t=(v-minV)/(maxV-minV||1);
-    return t<0.55?'#c0e8d8':'#002a1a';
-  }
-
-  const tbl=document.getElementById('hmTable');tbl.innerHTML='';
-  const thead=document.createElement('thead');
-  const hr=document.createElement('tr');
-  hr.innerHTML='<th class="rh">Country</th>';
-  RAW.attacks.forEach(a=>{
-    hr.innerHTML+=`<th>${a.replace('Man-in-the-Middle','MitM').replace('SQL Injection','SQL Inj.')}</th>`;
+/* ─ Sources (Bottom) ─ */
+function initSrcChart() {
+  const ctx = document.getElementById('chSrc')?.getContext('2d'); if (!ctx) return;
+  CH.src = new Chart(ctx, {
+    type:'polarArea',
+    data:{labels:[],datasets:[{data:[],
+      backgroundColor:['rgba(0,245,255,.5)','rgba(57,255,20,.5)','rgba(255,107,53,.5)','rgba(191,90,242,.5)'],
+      borderColor:[C.cyan,C.green,C.orange,C.purple], borderWidth:1.5}]},
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{padding:8,boxWidth:8,font:{size:10}}}},
+      scales:{r:{grid:{color:C.grid},ticks:{display:false}}},
+    },
   });
-  hr.innerHTML+='<th>Row Total</th>';
-  thead.appendChild(hr);tbl.appendChild(thead);
+}
+function updateSrcChart(d) {
+  if (!CH.src) return;
+  const e = Object.entries(countBy(d,'source')).sort((a,b)=>b[1]-a[1]);
+  CH.src.data.labels = e.map(x=>x[0]);
+  CH.src.data.datasets[0].data = e.map(x=>x[1]);
+  CH.src.update('active');
+}
 
-  const tb=document.createElement('tbody');
-  RAW.countries.forEach((c,ci)=>{
-    const row=document.createElement('tr');
-    const tot=Array.from(g.hm[ci]).reduce((a,b)=>a+b,0);
-    row.innerHTML=`<td>${c}</td>`;
-    g.hm[ci].forEach(v=>{
-      if(v<=0) row.innerHTML+=`<td class="nd">—</td>`;
-      else     row.innerHTML+=`<td style="background:${hmBg(v)};color:${hmFg(v)};">$${(v/1000).toFixed(1)}B</td>`;
+/* ════════════════════════════════════════════════════════════════
+   FINANCIAL EXPOSURE HEATMAP (Loss $M)
+   ════════════════════════════════════════════════════════════════ */
+function updateHeatmap(d) {
+  const wrap = document.getElementById('hmWrap'); if (!wrap) return;
+  const types = [...new Set(d.map(r=>r.type))].sort();
+  const inds  = [...new Set(d.map(r=>r.industry))].sort();
+  if (!types.length || !inds.length) {
+    wrap.innerHTML = '<div class="nodata"><i class="fas fa-table-cells"></i><span>No data</span></div>';
+    return;
+  }
+  const mx = {};
+  types.forEach(t => { mx[t] = {}; inds.forEach(i => { mx[t][i]=0; }); });
+  d.forEach(r => { if (mx[r.type]) mx[r.type][r.industry] = (mx[r.type][r.industry]||0) + r.loss; });
+  const allV = types.flatMap(t => inds.map(i => mx[t][i]));
+  const maxV = Math.max(1,...allV);
+
+  const cellBg = v => {
+    const x = v / maxV;
+    return `rgba(${Math.round(200+x*55)},${Math.round(100+x*50)},${Math.round(10+x*20)},${0.1+x*0.9})`;
+  };
+  const cellFg = v => (v/maxV) > 0.4 ? '#05080f' : '#dde6f5';
+  const abbr   = s => s.length > 7 ? s.substring(0,6)+'…' : s;
+
+  let h = '<table class="hmtable"><thead><tr><th></th>';
+  inds.forEach(i => { h += `<th title="${i}">${abbr(i)}</th>`; });
+  h += '</thead><tbody>';
+  types.forEach(t => {
+    h += `<tr><td class="rlabel">${t}</td>`;
+    inds.forEach(i => {
+      const v = mx[t][i];
+      const disp = v > 0 ? '$'+Math.round(v)+'M' : '';
+      h += `<td style="background:${v>0?cellBg(v):'transparent'};color:${cellFg(v)}" title="${t} → ${i}: $${v.toFixed(1)}M">${disp}</td>`;
     });
-    row.innerHTML+=`<td class="${tot>0?'rtot':'nd'}">${tot>0?'$'+(tot/1000).toFixed(1)+'B':'—'}</td>`;
-    tb.appendChild(row);
+    h += '</tr>';
   });
-  tbl.appendChild(tb);
+  h += '</tbody></table>';
+  wrap.innerHTML = h;
+}
 
-  /* scale bar */
-  const sw=document.getElementById('scaleSw');sw.innerHTML='';
-  if(allV.length){
-    for(let i=0;i<8;i++){
-      const t=i/7;
-      const el=document.createElement('div');el.className='ssw';
-      el.style.background=hmBg(minV+t*(maxV-minV));
-      sw.appendChild(el);
-    }
+/* ════════════════════════════════════════════════════════════════
+   ATTACK TYPE × INDUSTRY HEATMAP (COUNT) - from dashboard_generator
+   ════════════════════════════════════════════════════════════════ */
+function updateCountHeatmap(d) {
+  const wrap = document.getElementById('hmCountWrap'); if (!wrap) return;
+  const types = [...new Set(d.map(r=>r.type))].sort();
+  const inds  = [...new Set(d.map(r=>r.industry))].sort();
+  if (!types.length || !inds.length) {
+    wrap.innerHTML = '<div class="nodata"><i class="fas fa-table-cells"></i><span>No data</span></div>';
+    return;
+  }
+  const mx = {};
+  types.forEach(t => { mx[t] = {}; inds.forEach(i => { mx[t][i]=0; }); });
+  // Count incidents (not financial)
+  d.forEach(r => { if (mx[r.type]) mx[r.type][r.industry] = (mx[r.type][r.industry]||0) + 1; });
+  const allV = types.flatMap(t => inds.map(i => mx[t][i]));
+  const maxV = Math.max(1,...allV);
+
+  const cellBg = v => {
+    const x = v / maxV;
+    return `rgba(${Math.round(40+x*215)},${Math.round(80+x*175)},${Math.round(200+x*55)},${0.1+x*0.9})`;
+  };
+  const cellFg = v => (v/maxV) > 0.5 ? '#05080f' : '#dde6f5';
+  const abbr   = s => s.length > 7 ? s.substring(0,6)+'…' : s;
+
+  let h = '<table class="hmtable"><thead><tr><th></th>';
+  inds.forEach(i => { h += `<th title="${i}">${abbr(i)}</th>`; });
+  h += '</thead><tbody>';
+  types.forEach(t => {
+    h += `<tr><td class="rlabel">${t}</td>`;
+    inds.forEach(i => {
+      const v = mx[t][i];
+      h += `<td style="background:${v>0?cellBg(v):'transparent'};color:${cellFg(v)}" title="${t} → ${i}: ${v} incidents">${v || ''}</td>`;
+    });
+    h += '</tr>';
+  });
+  h += '</tbody></table>';
+  wrap.innerHTML = h;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   DATA TABLE
+   ════════════════════════════════════════════════════════════════ */
+function rowArr(r) {
+  return [
+    r.ts,
+    r.type,
+    `<span class="sbadge s-${r.severity}">${r.severity}</span>`,
+    `${r.flag} ${r.country}`,
+    r.industry,
+    r.vuln,
+    r.source,
+    r.cvss.toFixed(1),
+    `$${r.loss.toFixed(1)}M`,
+    `<span class="stbadge st-${r.status}">${r.status}</span>`,
+  ];
+}
+
+function initTable() {
+  try {
+    dtInst = $('#dtTable').DataTable({
+      data: filtered.map(rowArr),
+      columns:[
+        {title:'Timestamp'}, {title:'Attack Type'}, {title:'Severity'},
+        {title:'Country'},   {title:'Industry'},     {title:'Attack Vector'},
+        {title:'Source'},    {title:'CVSS',className:'dt-center'},
+        {title:'Loss $M',className:'dt-center text-warning'}, {title:'Status'},
+      ],
+      pageLength: 15, lengthMenu:[10,15,25,50],
+      order:[[0,'desc']],
+      dom:'<"row"<"col-sm-6"B><"col-sm-6"f>>rt<"row"<"col-sm-6"l><"col-sm-6"p>>',
+      buttons:[
+        {extend:'csv',   className:'btn btn-sm', text:'<i class="fas fa-download"></i> CSV'},
+        {extend:'print', className:'btn btn-sm', text:'<i class="fas fa-print"></i> Print'},
+      ],
+      language:{
+        search:'', searchPlaceholder:'Search incidents…',
+        info:'Showing _START_ to _END_ of _TOTAL_ incidents',
+        paginate:{ previous:'<i class="fas fa-chevron-left"></i>', next:'<i class="fas fa-chevron-right"></i>' },
+      },
+      createdRow(row, data) {
+        if (data[2] && data[2].includes('s-Critical')) $(row).addClass('row-crit');
+        else if (data[2] && data[2].includes('s-High')) $(row).addClass('row-high');
+      },
+    });
+  } catch(e) { console.warn('DataTable init failed:', e); }
+}
+
+function updateTable(d) {
+  if (!dtInst) return;
+  try {
+    dtInst.clear();
+    dtInst.rows.add(d.map(rowArr));
+    dtInst.rows().every(function() {
+      const data = this.data();
+      $(this.node()).removeClass('row-crit row-high');
+      if (data[2] && data[2].includes('s-Critical')) $(this.node()).addClass('row-crit');
+      else if (data[2] && data[2].includes('s-High')) $(this.node()).addClass('row-high');
+    });
+    dtInst.draw();
+  } catch(e) { console.warn('Table update failed:', e); }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   TICKER
+   ════════════════════════════════════════════════════════════════ */
+function updateTicker(d) {
+  const el = document.getElementById('tickInner'); if (!el) return;
+  const crits = d.filter(r=>r.severity==='Critical')
+    .sort((a,b)=>b.ts.localeCompare(a.ts)).slice(0,10);
+  if (!crits.length) {
+    el.innerHTML = '<span class="tickitem">No critical incidents in current filter</span>';
+    return;
+  }
+  const items = [...crits,...crits].map(r =>
+    `<span class="tickitem"><strong>[CRITICAL]</strong> ${r.ts} · ${r.flag} ${r.country} · ${r.type} → ${r.industry} · CVSS ${r.cvss} · $${r.loss}M</span>`
+  ).join('');
+  el.innerHTML = items;
+}
+
+/* ════════════════════════════════════════════════════════════════
+   LIVE FEED SIMULATION
+   ════════════════════════════════════════════════════════════════ */
+const L_TYPES  = ['Phishing','Ransomware','DDoS','Malware','SQL Injection','Man-in-the-Middle'];
+const L_CTRS   = ['USA','China','Russia','UK','Germany','India','Brazil','France','Japan','Australia'];
+const L_SRCS   = ['Nation-state','Hacker Group','Insider','Unknown'];
+const L_VULNS  = ['Zero-day','Unpatched Software','Weak Passwords','Social Engineering'];
+const L_DEFS   = ['Firewall','VPN','Encryption','Antivirus','AI-based Detection'];
+const L_INDS   = ['Banking','Healthcare','Government','IT','Education','Retail','Telecommunications'];
+const L_SEVS   = ['Critical','Critical','High','High','High','Medium','Medium','Low'];
+const L_STATS  = ['Active','Active','Contained','Resolved'];
+function rnd(a) { return a[Math.floor(Math.random()*a.length)]; }
+
+function genLive() {
+  const country = rnd(L_CTRS);
+  const sev     = rnd(L_SEVS);
+  const loss    = parseFloat((Math.random()*99+0.5).toFixed(2));
+  const users   = Math.floor(Math.random()*999000+424);
+  const cvss    = parseFloat((3+Math.random()*7).toFixed(1));
+  const dw      = sev==='Critical' ? Math.floor(50+Math.random()*150) : sev==='High' ? Math.floor(10+Math.random()*50) : Math.floor(Math.random()*10);
+  const now     = new Date();
+  const ts      = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}`;
+  const coords  = COORDS[country] || [0,0];
+  return {
+    ts, year: String(now.getFullYear()), country,
+    flag: FLAGS[country]||'🌐', lat:coords[0], lng:coords[1],
+    type: rnd(L_TYPES), industry: rnd(L_INDS), loss, users,
+    source: rnd(L_SRCS), vuln: rnd(L_VULNS), defense: rnd(L_DEFS),
+    res: Math.floor(Math.random()*168), severity: sev, cvss,
+    status: rnd(L_STATS), dw,
+  };
+}
+
+function toggleLive() {
+  const btn  = document.getElementById('btnLive');
+  const ind  = document.getElementById('liveInd');
+  const lbl  = document.getElementById('liveLabel');
+
+  if (liveTimer) {
+    clearInterval(liveTimer); liveTimer = null;
+    btn?.classList.remove('on');
+    ind?.classList.remove('on');
+    if (lbl) lbl.textContent = 'OFFLINE';
+  } else {
+    btn?.classList.add('on');
+    ind?.classList.add('on');
+    if (lbl) lbl.textContent = 'LIVE';
+
+    liveTimer = setInterval(() => {
+      const inc = genLive();
+      THREAT_DATA.unshift(inc);
+      filtered.unshift(inc);
+      updateAll();
+      if (dtInst) {
+        try { dtInst.row.add(rowArr(inc)).draw(false); } catch(e) {}
+      }
+    }, 7000);
   }
 }
 
-/* ── LEGEND REFRESH (source + vuln donuts) ── */
-function refreshLegends(g){
-  [
-    ['leg-src', RAW.sources,  SRC_C, [...g.byS]],
-    ['leg-vln', RAW.vulns,    VLN_C, [...g.byV]],
-  ].forEach(([id,labels,colors,data])=>{
-    const w=document.getElementById(id);w.innerHTML='';
-    const tot=data.reduce((a,b)=>a+b,0)||1;
-    labels.forEach((l,i)=>{
-      const d=document.createElement('div');d.className='li';
-      d.innerHTML=`<div class="ld" style="background:${clr(colors,i)}"></div>${l}&nbsp;<span style="color:var(--t1)">${((data[i]/tot)*100).toFixed(1)}%</span>`;
-      w.appendChild(d);
-    });
-  });
-}
-
-/* ── BADGE ── */
-function updateBadge(cnt){
-  document.getElementById('incBadge').textContent=cnt.toLocaleString()+' incidents';
-}
-
-/* ── MAIN REFRESH (called on every filter change) ── */
-function refresh(){
-  const g=compute();
-  updateKPI(g);
-  updateInsights(g);
-  updateHeatmap(g);
-  updateBadge(g.cnt);
-  refreshLegends(g);
-  if(!initialized){initCharts(g);initialized=true;}
-  else{updateCharts(g);}
-}
-
-refresh();
+/* ════════════════════════════════════════════════════════════════
+   BOOT
+   ════════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', () => {
+  const safe = (fn, name) => { try { fn(); } catch(e) { console.warn(name, e); } };
+  safe(startClock,      'clock');
+  safe(initFilters,     'filters');
+  safe(initMap,         'map');
+  safe(initAtkChart,    'atkChart');
+  safe(initSevChart,    'sevChart');
+  safe(initTimeChart,   'timeChart');
+  safe(initIndChart,    'indChart');
+  safe(initLossAtkChart,'lossAtkChart');
+  safe(initLossYrChart, 'lossYrChart');
+  safe(initLossIndChart,'lossIndChart');
+  safe(initSrcChart,    'srcChart');
+  safe(initTable,       'table');
+  safe(updateAll,       'initialRender');
+});
 </script>
 </body>
-</html>"""
+</html>
+"""
 
 
-def build_html(data_json: str, source_filename: str, total_records: int) -> str:
-    """Inject data and metadata into the HTML template using safe string replacement."""
-    return (
-        HTML_TEMPLATE
-        .replace("__DATA_JSON__",        data_json)
-        .replace("__SOURCE_FILE__",      source_filename)
-        .replace("__SOURCE_FILE_UPPER__", source_filename.upper())
-        .replace("__TOTAL_RECORDS__",    f"{total_records:,}")
-    )
+# ─── HTML Generator ──────────────────────────────────────────────────────────
+
+def generate_html(data, load_time):
+    """Build the complete self-contained HTML by injecting JSON into the template."""
+    load_ts        = load_time.strftime("%Y-%m-%d %H:%M:%S")
+    countries      = sorted({r["country"] for r in data})
+    types_list     = sorted({r["type"]    for r in data})
+    sources_list   = sorted({r["source"]  for r in data})
+    years_list     = sorted({r["year"]    for r in data})
+
+    html = TEMPLATE
+    html = html.replace("__DATA_JSON__",     json.dumps(data,           ensure_ascii=False))
+    html = html.replace("__LOAD_TS__",       load_ts)
+    html = html.replace("__COUNTRIES_JSON__",json.dumps(countries,      ensure_ascii=False))
+    html = html.replace("__TYPES_JSON__",    json.dumps(types_list,     ensure_ascii=False))
+    html = html.replace("__SOURCES_JSON__",  json.dumps(sources_list,   ensure_ascii=False))
+    html = html.replace("__YEARS_JSON__",    json.dumps(years_list,     ensure_ascii=False))
+    html = html.replace("__COORDS_JSON__",   json.dumps(COUNTRY_COORDS, ensure_ascii=False))
+    html = html.replace("__FLAGS_JSON__",    json.dumps(COUNTRY_FLAGS,  ensure_ascii=False))
+    return html
 
 
-# ─────────────────────────────────────────────────────────────
-# MAIN
-# ─────────────────────────────────────────────────────────────
-def main():
-    args = parse_args()
-
-    if not os.path.exists(args.csv):
-        print(f"File not found: {args.csv}")
-        sys.exit(1)
-
-    output_dir = os.path.dirname(args.output)
-    if output_dir and not os.path.exists(output_dir):
-        print(f"Output directory does not exist: {output_dir}")
-        sys.exit(1)
-
-    print(f"📥  Loading: {args.csv}")
-    try:
-        df = pd.read_csv(args.csv, sep=args.delimiter)
-        print(f"Loaded {len(df):,} rows × {len(df.columns)} columns")
-    except Exception as e:
-        print(f"Failed to read CSV: {e}")
-        sys.exit(1)
-
-    required = list(COLUMN_MAP.values())
-    missing = [c for c in required if c not in df.columns]
-    if missing:
-        print(f"Missing columns: {missing}")
-        print(f"Found: {df.columns.tolist()}")
-        sys.exit(1)
-
-    print("Encoding data...")
-    encoded   = encode_data(df)
-    data_json = json.dumps(encoded, separators=(",", ":"))
-    print(f"Encoded {len(encoded['rows']):,} records · {len(data_json)/1024:.1f} KB")
-
-    print("Building dashboard...")
-    html = build_html(data_json, os.path.basename(args.csv), len(df))
-
-    with open(args.output, "w", encoding="utf-8") as f:
-        f.write(html)
-
-    size_kb = os.path.getsize(args.output) / 1024
-    print(f"Dashboard saved: {args.output}  ({size_kb:.1f} KB)")
-    print(f"Open in any browser — no server required")
-
+# ─── Entry Point ─────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    main()
+    csv_path = sys.argv[1] if len(sys.argv) > 1 else CSV_FILENAME
+
+    data     = read_csv(csv_path)
+    html     = generate_html(data, datetime.utcnow())
+
+    with open(OUTPUT_FILENAME, "w", encoding="utf-8") as f:
+        f.write(html)
+
+    abs_path = os.path.abspath(OUTPUT_FILENAME)
+    print(f"[SUCCESS] Dashboard generated → '{OUTPUT_FILENAME}'")
+    print(f"          Open in browser: file://{abs_path}")
+    print(f"          Total incidents embedded: {len(data)}")
