@@ -1,3 +1,7 @@
+---
+number-sections: false
+---
+
 # Meeting Notes
 
 This page documents relevant coaching sessions, internal team discussions, decisions and next steps during the development of the visualisation product. The notes are sorted in reverse chronological order.
