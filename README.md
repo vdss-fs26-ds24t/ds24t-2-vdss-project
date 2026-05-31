@@ -7,6 +7,15 @@ Adapt the `LICENSE` as required.
 
 > To do: Provide a brief description of the project here.
 
+## Schnellstart
+
+```bash
+uv sync
+uv run data_acquisition/load.py
+uv run python generate-data-profile.py ../data/raw/Global_Cybersecurity_Threats_2015-2024.csv
+uv run streamlit run deployment/app.py
+```
+
 ## Project Organisation
 The visualization product development is organised according to the following process model:
 
